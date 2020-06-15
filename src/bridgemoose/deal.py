@@ -1,7 +1,5 @@
-import bisect
 import collections
 import itertools
-import re
 from .direction import Direction
 
 
@@ -27,6 +25,13 @@ class Card(collections.namedtuple("Card", "suit rank")):
     @staticmethod
     def all():
         return sum([[Card(s,r) for s in Card.SUITS] for r in Card.RANKS], [])
+
+def cmp_rank(r1, r2):
+    """
+r1 and r2 are single character strings representing a rank.  Return
+a positive number if r1>r2, 0 if r1==r2, negative if r1<r2
+    """
+    return Card.RANKS.index(r1) - Card.RANKS.index(r2)
 
 
 class Hand:
@@ -274,4 +279,5 @@ class Bid:
     def __str__(self):
         return "%d%s" % (self.level, self.strain)
 
-__all__ = ["Bid", "Card", "Deal", "Hand", "two_hands_square_string"]
+__all__ = ["Bid", "Card", "Deal", "Hand",
+    "cmp_rank", "two_hands_square_string"]

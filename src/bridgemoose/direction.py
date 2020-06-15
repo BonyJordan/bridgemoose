@@ -29,5 +29,9 @@ class Direction:
     def __hash__(self):
         return hash(self.i)
 
+    @staticmethod
+    def all_dirs():
+        return list([Direction(i) for i in range(4)])
+
 
 __all__ = ["Direction"]

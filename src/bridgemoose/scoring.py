@@ -1,3 +1,5 @@
+import bisect
+
 def scorediff_imps(diff):
     """
 Convert my_score - other_score into IMPs
@@ -9,6 +11,8 @@ Convert my_score - other_score into IMPs
         return -bisect.bisect_left(imps_table, -diff)
     else:
         return bisect.bisect_left(imps_table, diff)
+
+import re
 
 def scorediff_matchpoints(diff):
     if diff < 0:

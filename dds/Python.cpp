@@ -12,6 +12,10 @@ dds_error(int r)
     return PyErr_Format(PyExc_TypeError, "DDS Error: %s", line);
 }
 
+const char* SUITS = "SHDC";
+const char* RANKS = "23456789TJQKA";
+const char* DIRS = "WNES";
+
 
 static int string_to_dir(const char* s)
 {
@@ -36,9 +40,8 @@ static int string_to_dir(const char* s)
 
 static int char_to_rank(char c)
 {
-    static const char* rchars = "23456789TJQKA";
     for (int i=0 ; i<13 ; i++)
-        if (rchars[i] == c)
+        if (RANKS[i] == c)
             return 4 << i;
     return -1;
 }
@@ -92,14 +95,14 @@ static void suit_rank_str(int suit, int rank, char* card)
     if (suit < 0 || suit >= 4)
         card[0] = '?';
     else
-        card[0] = "SHDC"[suit];
+        card[0] = SUITS[suit];
     card[2] = '\0';
 
     if (rank < 2 || rank > 14) {
 	printf("Weird ass rank: %d\n", rank);
 	card[1] = '?';
     } else
-	card[1] = "23456789TJQKA"[rank-2];
+	card[1] = RANKS[rank-2];
 }
 
 
@@ -126,27 +129,27 @@ python_tuple_to_deal(struct deal& dl, PyObject* tuple)
 
     // Now let's turn it into DDS format.
     dl.trump = strain_id;
-    dl.first = dec_dir_id;       // person on lead. by lucky coincidence
-                                // equal to our encoding for declarer!
+    dl.first = (dec_dir_id + 1) % 4;
     for (int i=0 ; i<3 ; i++) {
         dl.currentTrickSuit[i] = 0;
         dl.currentTrickRank[i] = 0;
     }
 
     // Load the cards from py_deal to dl.
-    static const char* dds_dirs[] = {"N", "E", "S", "W"};
-    static const char* dds_suits[] = {"S", "H", "D", "C"};
 
     for (int hid=0 ; hid<4 ; hid++)
     {
-        PyObject* hand = PyObject_GetAttrString(py_deal, dds_dirs[hid]);
+        char attr_name[2];
+        snprintf(attr_name, sizeof attr_name, "%c", DIRS[hid]);
+        PyObject* hand = PyObject_GetAttrString(py_deal, attr_name);
         if (hand == NULL)
             return NULL;
 
         for (int sid=0 ; sid<4 ; sid++)
         {
             dl.remainCards[hid][sid] = 0;
-            PyObject* ranks = PyObject_GetAttrString(hand, dds_suits[sid]);
+            snprintf(attr_name, sizeof attr_name, "%c", SUITS[sid]);
+            PyObject* ranks = PyObject_GetAttrString(hand, attr_name);
             if (ranks == NULL) {
                 Py_DECREF(hand);
                 return NULL;
@@ -264,6 +267,7 @@ dds_solve_many_plays(PyObject* self, PyObject* args)
 
     int ctSuit[3];
     int ctRank[3];
+    int ctNonZero = 0;
     for (int i=0 ; i<3 ; i++) {
         ctSuit[i] = 0;
         ctRank[i] = 0;
@@ -278,6 +282,7 @@ dds_solve_many_plays(PyObject* self, PyObject* args)
         ctRank[i] = char_to_rank(trick_so_far[i*2+1]);
         if (ctRank[i] < 0)
             return PyErr_Format(PyExc_ValueError, "Bad rank in '%s'", trick_so_far);
+        ctNonZero += 1;
     }
 
     int play_dir_id = string_to_dir(play_dir);
@@ -294,6 +299,8 @@ dds_solve_many_plays(PyObject* self, PyObject* args)
 
     struct boardsPBN boards;
     int num_deals = 0;
+    int count_by_player[MAXNOOFBOARDS][4];
+
     PyObject* py_deal;
     while ((py_deal = PyIter_Next(iter)))
     {
@@ -312,21 +319,22 @@ dds_solve_many_plays(PyObject* self, PyObject* args)
         }
 
         boards.target[num_deals] = -1;
-        boards.solutions[num_deals] = 2;
+        boards.solutions[num_deals] = 3;
         boards.mode[num_deals] = 0;
 
         boards.deals[num_deals].trump = strain_id;
-        boards.deals[num_deals].first = play_dir_id;
+        boards.deals[num_deals].first = (play_dir_id + (4 - ctNonZero)) % 4;
         for (int i=0 ; i<3 ; i++) {
             boards.deals[num_deals].currentTrickSuit[i] = ctSuit[i];
             boards.deals[num_deals].currentTrickRank[i] = ctRank[i];
         }
 
         int i = 0;
-        boards.deals[num_deals].remainCards[i++] = 'W';
+        boards.deals[num_deals].remainCards[i++] = 'N';
         boards.deals[num_deals].remainCards[i++] = ':';
 
         for (int j=0 ; j<4 ; j++) {
+            int count = 0;
 	    if (j != 0) {
 		if (i >= 78) {
                     Py_DECREF(py_deal);
@@ -336,6 +344,7 @@ dds_solve_many_plays(PyObject* self, PyObject* args)
 		boards.deals[num_deals].remainCards[i++] = ' ';
 	    }
 
+            count_by_player[num_deals][j] = 0;
             for (const char* cp = h[j] ; *cp ; cp++) {
                 if (i >= 78) {
                     Py_DECREF(py_deal);
@@ -347,12 +356,13 @@ dds_solve_many_plays(PyObject* self, PyObject* args)
                     continue;
                 else if (*cp == '/')
                     boards.deals[num_deals].remainCards[i++] = '.';
-                else
+                else {
+                    count_by_player[num_deals][j] += 1;
                     boards.deals[num_deals].remainCards[i++] = *cp;
+                }
             }
         }
 	boards.deals[num_deals].remainCards[i] = 0;
-	printf("deal %d cards %s\n", num_deals, boards.deals[num_deals].remainCards);
 
         num_deals += 1;
         Py_DECREF(py_deal);
@@ -370,25 +380,49 @@ dds_solve_many_plays(PyObject* self, PyObject* args)
         return NULL;
 
     for (int i=0 ; i<sb.noOfBoards ; i++) {
-        int num_cards = sb.solvedBoard[i].cards;
+        int num_cards = count_by_player[i][boards.deals[i].first];
+        int num_card_classes = sb.solvedBoard[i].cards;
 
         PyObject* board_list = PyList_New(num_cards);
         if (board_list == NULL) {
             Py_DECREF(out_list);
             return NULL;
         }
-        for (int c=0 ; c<num_cards ; c++) {
+        int ci = 0;
+        for (int cc=0 ; cc<num_card_classes ; cc++) {
             char card[3];
-            suit_rank_str(sb.solvedBoard[i].suit[c], sb.solvedBoard[i].rank[c],
-                card);
-            int tricks = sb.solvedBoard[i].score[c];
+            suit_rank_str(sb.solvedBoard[i].suit[cc],
+                sb.solvedBoard[i].rank[cc], card);
+            int tricks = sb.solvedBoard[i].score[cc];
             PyObject* py_score = Py_BuildValue("si", card, tricks);
             if (py_score == NULL) {
                 Py_DECREF(board_list);
                 Py_DECREF(out_list);
                 return NULL;
             }
-            PyList_SET_ITEM(board_list, c, py_score);
+            assert(ci < num_cards);
+            PyList_SET_ITEM(board_list, ci, py_score);
+            ci += 1;
+
+            for (int r=0 ; r<13 ; r++) {
+                if ((4<<r) & sb.solvedBoard[i].equals[cc]) {
+                    suit_rank_str(sb.solvedBoard[i].suit[cc], r+2, card);
+                    py_score = Py_BuildValue("si", card, tricks);
+                    if (py_score == NULL) {
+                        Py_DECREF(board_list);
+                        Py_DECREF(out_list);
+                        return NULL;
+                    }
+                    assert(ci < num_cards);
+                    PyList_SET_ITEM(board_list, ci, py_score);
+                    ci += 1;
+                }
+            }
+        }
+        if (ci != num_cards) {
+            Py_DECREF(board_list);
+            Py_DECREF(out_list);
+            return PyErr_Format(PyExc_RuntimeError, "Internal Error 1");
         }
         PyList_SET_ITEM(out_list, i, board_list);
     }

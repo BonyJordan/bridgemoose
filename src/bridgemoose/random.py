@@ -2,6 +2,21 @@ import random
 from .deal import Card, Deal, Hand
 from .direction import Direction
 
+def parse_card_set(s):
+    out = set()
+
+    by_suit = s.split("/")
+    if len(by_suit) != 4:
+        raise ValueError("Bad hand specifier: '%s' needs 3 '/'s" % (s))
+
+    for suit, ranks in zip("SHDC", by_suit):
+        for rank in ranks:
+            out.add(Card(suit, rank))
+
+    if len(out) > 13:
+        raise ValueError("More than 13 cards: '%s'" % (s))
+    return out
+
 def one_random_deal(fixed_cards={}, rng=None):
     if rng is None:
         rng = random
@@ -10,18 +25,19 @@ def one_random_deal(fixed_cards={}, rng=None):
         sorting = True
 
     cardset = set(Card.all())
-    hands = dict()
+    known_cards = {d: set() for d in Direction.ALL}
     for key, val in fixed_cards.items():
         if isinstance(key, Direction):
             key = str(key)
         if not key in "NSEW":
             raise ValueError("Bad key for fixed_cards")
+            
         if isinstance(val, Hand):
-            hands[key] = val
+            known_cards[key] = val.cards
         else:
-            hands[key] = Hand(val)
+            known_cards[key] = parse_card_set(val)
 
-        cardset -= hands[key].cards
+        cardset -= known_cards[key]
 
     # Must sort when
     cardlist = list(cardset)
@@ -29,10 +45,14 @@ def one_random_deal(fixed_cards={}, rng=None):
         cardlist.sort()
     rng.shuffle(cardlist)
     n = 0
+
+    hands = {}
     for key in Direction.ALL:
-        if not key in hands:
-            hands[key] = Hand(set(cardlist[n:n+13]))
-            n += 13
+        known = known_cards[key]
+        k = 13 - len(known)
+        unknown = set(cardlist[n:n+k])
+        hands[key] = Hand(known | unknown)
+        n += k
     assert n == len(cardlist), (n, len(cardlist))
     return Deal(hands['W'],hands['N'],hands['E'],hands['S'])
 
