@@ -1,8 +1,8 @@
 import bisect
 import collections
 import itertools
-import random
 import re
+from .direction import Direction
 
 
 class Card(collections.namedtuple("Card", "suit rank")):
@@ -67,7 +67,7 @@ with the following useful analytics defined:
         elif type(cards) is set:
             self.init_for_set(cards)
         else:
-            raise TypeError()
+            raise TypeError("bad type: %s for" % (type(cards)), cards)
 
     def init_for_string(self, thestr):
         thecards = set()
@@ -198,6 +198,16 @@ class Deal:
             out += "%8s%s %s\n" % ("", symbol, self.S.str_for_suit(suit))
         return out
 
+    def __getitem__(self, index):
+        if isinstance(index, Direction):
+            index = index.i
+        elif isinstance(index, str):
+            index = Direction.ALL.index(index)
+        elif not isinstance(index, int):
+            raise TypeError("Unhandled index:", index)
+
+        return [self.W, self.N, self.E, self.S][index]
+
 
 class Bid:
     STRAINS = ["C","D","H","S","NT"]
@@ -264,85 +274,4 @@ class Bid:
     def __str__(self):
         return "%d%s" % (self.level, self.strain)
 
-class Direction:
-    ALL = "WNES"
-
-    def __init__(self, name):
-        if isinstance(name, str):
-            self.i = ALL.index(name)
-        elif isinstance(name, int):
-            self.i = name
-        else:
-            raise TypeError()
-
-    def __add__(self, other):
-        if isinstance(other, int):
-            return Direction( (self.i + other) & 3)
-        else:
-            raise TypeError()
-
-    def __sub__(self, other):
-        if isinstance(other, int):
-            return Direction( (self.i - other) & 3)
-        else:
-            raise TypeError()
-
-    def __str__(self):
-        return ALL[self.i]
-
-    def __eq__(self, other):
-        return isinstance(other, Direction) and self.i == other.i
-    def __hash__(self):
-        return hash(self.i)
-
-
-def one_random_deal(fixed_cards={}, rng=None):
-    if rng is None:
-        rng = random
-        sorting = False
-    else:
-        sorting = True
-
-    cardset = set(Card.all())
-    hands = dict()
-    for key, val in fixed_cards.items():
-        if not key in "NSEW":
-            raise ValueError("Bad key for fixed_cards")
-        hands[key] = Hand(val)
-        cardset -= hands[key].cards
-
-    # Must sort when
-    cardlist = list(cardset)
-    if sorting:
-        cardlist.sort()
-    rng.shuffle(cardlist)
-    n = 0
-    for key in Direction.ALL:
-        if not key in hands:
-            hands[key] = Hand(set(cardlist[n:n+13]))
-            n += 13
-    assert n == len(cardlist), (n, len(cardlist))
-    return Deal(hands['W'],hands['N'],hands['E'],hands['S'])
-
-def random_deals(count, accept=None, fixed_cards={}, rng=None, fail_count=100000):
-    """
-Class to generate random deals.
-count       : stop generation after this many successes
-accept      : a function which takes a Deal and returns True or False
-fixed_cards : a map direction -> hand string
-rng         : an instance of random.Random()
-fail_count  : stop generation after this many failures in the accept clause
-    """
-
-    misses = 0
-    hits = 0
-    while (count is None or hits<count) and (fail_count is None or misses<fail_count):
-        d = one_random_deal(fixed_cards, rng)
-        if accept is None or accept(d):
-            hits += 1
-            yield d
-        else:
-            misses += 1
-
-__all__ = ["Bid", "Card", "Deal", "Direction", "Hand", 
-    "two_hands_square_string", "random_deals"]
+__all__ = ["Bid", "Card", "Deal", "Hand", "two_hands_square_string"]

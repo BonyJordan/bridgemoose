@@ -95,13 +95,11 @@ static void suit_rank_str(int suit, int rank, char* card)
         card[0] = "SHDC"[suit];
     card[2] = '\0';
 
-    for (int i=0 ; i<13 ; i++)
-        if (rank == (4 << i)) {
-            card[1] = "23456789TJQKA"[i];
-            return;
-        }
-
-    card[1] = '?';
+    if (rank < 2 || rank > 14) {
+	printf("Weird ass rank: %d\n", rank);
+	card[1] = '?';
+    } else
+	card[1] = "23456789TJQKA"[rank-2];
 }
 
 
@@ -307,7 +305,7 @@ dds_solve_many_plays(PyObject* self, PyObject* args)
 
         const char* h[4];
 
-        if (!PyArg_ParseTuple(py_deal, "sssss", &h[0], &h[1], &h[2], &h[3]))
+        if (!PyArg_ParseTuple(py_deal, "ssss", &h[0], &h[1], &h[2], &h[3]))
         {
             Py_DECREF(py_deal);
             return NULL;
@@ -329,6 +327,15 @@ dds_solve_many_plays(PyObject* self, PyObject* args)
         boards.deals[num_deals].remainCards[i++] = ':';
 
         for (int j=0 ; j<4 ; j++) {
+	    if (j != 0) {
+		if (i >= 78) {
+                    Py_DECREF(py_deal);
+                    return PyErr_Format(PyExc_ValueError,
+                        "Too many cards specified");
+                }
+		boards.deals[num_deals].remainCards[i++] = ' ';
+	    }
+
             for (const char* cp = h[j] ; *cp ; cp++) {
                 if (i >= 78) {
                     Py_DECREF(py_deal);
@@ -341,16 +348,18 @@ dds_solve_many_plays(PyObject* self, PyObject* args)
                 else if (*cp == '/')
                     boards.deals[num_deals].remainCards[i++] = '.';
                 else
-                    boards.deals[num_deals].remainCards[i++] = '/';
+                    boards.deals[num_deals].remainCards[i++] = *cp;
             }
-            boards.deals[num_deals].remainCards[i] = 0;
         }
+	boards.deals[num_deals].remainCards[i] = 0;
+	printf("deal %d cards %s\n", num_deals, boards.deals[num_deals].remainCards);
 
         num_deals += 1;
         Py_DECREF(py_deal);
     }
 
     struct solvedBoards sb;
+    boards.noOfBoards = num_deals;
     int ret = SolveAllBoards(&boards, &sb);
     if (ret < 0)
         return dds_error(ret);
@@ -403,7 +412,8 @@ static PyMethodDef DdsMethods[] = {
     {"solve_many_plays", dds_solve_many_plays, METH_VARARGS,
 "Solve many plays\n"
 "Takes four parameters:\n"
-"   1. A list of 4-tuples, where each tuple is a hand in string format,\n"
+"   1. A list of 4-tuples, where each tuple is a (partial) hand in string\n"
+"      format,\n"
 "       starting with West.\n"
 "   2. The direction of the player on play ('W','N','E', or 'S')\n"
 "   3. Strain ('C','D','H','S', or 'N')\n"
