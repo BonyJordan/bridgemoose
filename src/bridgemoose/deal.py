@@ -1,38 +1,7 @@
 import collections
 import itertools
 from .direction import Direction
-
-
-class Card(collections.namedtuple("Card", "suit rank")):
-    SUITS = "CDHS"
-    RANKS = "23456789TJQKA"
-    RANK_ORDER = {x:i for i,x in enumerate(RANKS)}
-    SUIT_UNICODE = {'C': u'\u2663', 'D': u'\u2666', 'H': u'\u2665', 'S': u'\u2660'}
-    SUIT_HTML = {'C': '&clubs;', 'D':'<FONT color="red">&diams;</FONT>', 'H':'<FONT color="red">&hearts;</FONT>', 'S':'&spades;'}
-
-    def __new__(self, suit, rank):
-        return tuple.__new__(Card, (suit, rank))
-
-    def __str__(self):
-        return self.suit + self.rank
-
-    __repr__ = __str__
-
-    @staticmethod
-    def hi_lo_order_ranks(ranks):
-        return "".join(sorted(ranks, key=lambda r:Card.RANK_ORDER[r], reverse=True))
-
-    @staticmethod
-    def all():
-        return sum([[Card(s,r) for s in Card.SUITS] for r in Card.RANKS], [])
-
-def cmp_rank(r1, r2):
-    """
-r1 and r2 are single character strings representing a rank.  Return
-a positive number if r1>r2, 0 if r1==r2, negative if r1<r2
-    """
-    return Card.RANKS.index(r1) - Card.RANKS.index(r2)
-
+from .card import Card
 
 class Hand:
     """
@@ -279,5 +248,5 @@ class Bid:
     def __str__(self):
         return "%d%s" % (self.level, self.strain)
 
-__all__ = ["Bid", "Card", "Deal", "Hand",
-    "cmp_rank", "two_hands_square_string"]
+__all__ = ["Bid", "Deal", "Hand",
+    "two_hands_square_string"]

@@ -6,6 +6,8 @@ class Direction:
             self.i = Direction.ALL.index(name)
         elif isinstance(name, int):
             self.i = name
+        elif isinstance(name, Direction):
+            self.i = name.i
         else:
             raise TypeError()
 
