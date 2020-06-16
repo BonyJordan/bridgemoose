@@ -35,7 +35,7 @@ class Card(collections.namedtuple("Card", "suit rank")):
         if not rank in Card.RANKS:
             return ValueError("Bad rank '%s'" % (rank))
 
-        return tuple.__new__(Card, (args[0], args[1]))
+        return tuple.__new__(Card, (suit, rank))
 
     def __str__(self):
         return self.suit + self.rank

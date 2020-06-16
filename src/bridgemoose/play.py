@@ -52,18 +52,20 @@ class PartialHand:
             if isinstance(other, Card):
                 return PartialHand(op(self.cards, {other}))
             elif isinstance(other, PartialHand):
-                return PartialHand(op(self.cards, other))
+                return PartialHand(op(self.cards, other.cards))
             elif isinstance(other, str):
                 if len(other) == 2:
                     return PartialHand(op(self.cards, {Card(other)}))
                 else:
                     return PartialHand(op(self.cards, {PartialHand(other)}))
+            elif isinstance(other, set):
+                return PartialHand(op(self.cards, other))
             else:
                 raise TypeError(other)
         return fn
 
     __sub__ = op_maker(operator.sub)
-    __add__ = op_maker(operator.add)
+    __add__ = op_maker(operator.__or__)
 
 
 class PlayDeal:
@@ -85,23 +87,26 @@ class PlayDeal:
         self.showouts = set()
 
     def original_player_suit_count(self, player, suit):
-        return len(self.hands_left[player.i].by_suit[suit]) +
+        return len(self.hands_left[player.i].by_suit[suit]) + \
             len(self.hands_played[player.i].by_suit[suit])
 
     def play_card(self, card):
         if isinstance(card, str):
             card = Card(card)
+        if not isinstance(card, Card):
+            raise TypeError("Want Card")
 
         if not card in self.hands_left[self.next_play.i].cards:
             raise ValueError("Card %s not held by %s" % (card, self.next_play))
 
-        led_suit = self.current_trick[0].suit
-        if len(self.current_trick) > 0 and card.suit != led_suit:
-            if self.hands_left[self.next_play.i].by_suit:
-                raise ValueError("Player %s is not out of %s" % (self.next_play,
-                    led_suit))
-            self.showouts.add(ShowOut(self.next_play, led_suit,
-                self.original_player_suit_count(self.next_play, led_suit)))
+        if len(self.current_trick) > 0:
+            led_suit = self.current_trick[0].suit
+            if card.suit != led_suit:
+                if self.hands_left[self.next_play.i].by_suit:
+                    raise ValueError("Player %s is not out of %s" %
+                        (self.next_play, led_suit))
+                self.showouts.add(ShowOut(self.next_play, led_suit,
+                    self.original_player_suit_count(self.next_play, led_suit)))
 
         self.hands_played[self.next_play.i] += {card}
         self.hands_left[self.next_play.i] -= {card}
