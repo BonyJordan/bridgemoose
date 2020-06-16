@@ -284,8 +284,7 @@ dds_solve_deal(PyObject* self, PyObject* args)
 // Returns Py_None if okay, else an error of some sort to be passed along
 static PyObject*
 load_boards_pbn(PyObject* py_deal_list, struct boardsPBN& boards,
-    int count_by_player[MAXNOOFBOARDS][4], const int ctSuit[3],
-    const int ctRank[3], int strain_id, int first_dir_id)
+    const int ctSuit[3], const int ctRank[3], int strain_id, int first_dir_id)
 {
     int num_deals = 0;
 
@@ -338,7 +337,6 @@ load_boards_pbn(PyObject* py_deal_list, struct boardsPBN& boards,
 		boards.deals[num_deals].remainCards[i++] = ' ';
 	    }
 
-            count_by_player[num_deals][j] = 0;
             for (const char* cp = h[j] ; *cp ; cp++) {
                 if (i >= 78) {
                     Py_DECREF(py_deal);
@@ -351,7 +349,6 @@ load_boards_pbn(PyObject* py_deal_list, struct boardsPBN& boards,
                 else if (*cp == '/')
                     boards.deals[num_deals].remainCards[i++] = '.';
                 else {
-                    count_by_player[num_deals][j] += 1;
                     boards.deals[num_deals].remainCards[i++] = *cp;
                 }
             }
@@ -410,8 +407,7 @@ dds_solve_many_plays(PyObject* self, PyObject* args)
         return PyErr_Format(PyExc_ValueError, "Bad strain '%s'", strain);
 
     struct boardsPBN boards;
-    int count_by_player[MAXNOOFBOARDS][4];
-    PyObject* r = load_boards_pbn(py_list, boards, count_by_player, ctSuit,
+    PyObject* r = load_boards_pbn(py_list, boards, ctSuit,
         ctRank, strain_id, (play_dir_id + (4 - ctNonZero)) % 4);
     if (r != Py_None)
         return r;
@@ -427,8 +423,10 @@ dds_solve_many_plays(PyObject* self, PyObject* args)
         return NULL;
 
     for (int i=0 ; i<sb.noOfBoards ; i++) {
-        int num_cards = count_by_player[i][boards.deals[i].first];
+        int num_cards = 0;
         int num_card_classes = sb.solvedBoard[i].cards;
+        for (int cc=0 ; cc<num_card_classes ; cc++)
+            num_cards += 1 + bitcount(sb.solvedBoard[i].equals[cc]);
 
         PyObject* board_list = PyList_New(num_cards);
         if (board_list == NULL) {
@@ -467,9 +465,10 @@ dds_solve_many_plays(PyObject* self, PyObject* args)
             }
         }
         if (ci != num_cards) {
+            printf("ci=%d num_cards=%d\n", ci, num_cards);
             Py_DECREF(board_list);
             Py_DECREF(out_list);
-            return PyErr_Format(PyExc_RuntimeError, "Internal Error 1");
+            RETURN_ASSERT;
         }
         PyList_SET_ITEM(out_list, i, board_list);
     }
@@ -510,10 +509,9 @@ dds_analyze_many_plays(PyObject* self, PyObject* args)
         return PyErr_Format(PyExc_ValueError, "Bad strain '%s'", strain);
 
     struct boardsPBN boards;
-    int count_by_player[MAXNOOFBOARDS][4];
 
     PyObject* r = load_boards_pbn(py_list, boards,
-        count_by_player, ctSuit, ctRank, strain_id, (declarer_dir_id+1)%4);
+        ctSuit, ctRank, strain_id, (declarer_dir_id+1)%4);
     if (r != Py_None)
         return r;
 
