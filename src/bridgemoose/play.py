@@ -67,10 +67,13 @@ class PartialHand:
     __sub__ = op_maker(operator.sub)
     __add__ = op_maker(operator.__or__)
 
-
 class PlayDeal:
     def __init__(self, deal, declarer, contract, vulnerable):
-        self.hands_left = [PartialHand(h) for h in [deal.W, deal.N, deal.E, deal.S]]
+        if isinstance(deal, Deal):
+            self.hands_left = [PartialHand(h) for h in [deal.W, deal.N, deal.E, deal.S]]
+        else:
+            self.hands_left = deal
+
         self.hands_played = [PartialHand("///") for _ in range(4)]
         self.declarer = Direction(declarer)
         self.next_play = self.declarer + 1
@@ -85,6 +88,27 @@ class PlayDeal:
         self.declarer_tricks = 0
         self.defense_tricks = 0
         self.showouts = set()
+    
+    def view(self):
+        v = PlayDeal(self.hands_left, self.declarer, self.contract,
+            self.vulnerable)
+        visible = [self.next_play.i]
+        if self.next_play == self.dummy:
+            visible.append(self.declarer.i)
+        if self.history:
+            visible.append(self.dummy.i)
+
+        v.next_play = self.next_play
+        v.hands_left = [h if i in visible else PartialHand(set()) for
+            i, h in enumerate(v.hands_left)]
+        v.hands_played = list(self.hands_played)
+        v.history = list(self.history)
+        v.current_trick = list(self.current_trick)
+        v.declarer_tricks = self.declarer_tricks
+        v.defense_tricks = self.defense_tricks
+        v.showouts = set(self.showouts)
+        return v
+
 
     @staticmethod
     def history_to_player(declarer, history, strain):
