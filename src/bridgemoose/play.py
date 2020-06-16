@@ -86,6 +86,36 @@ class PlayDeal:
         self.defense_tricks = 0
         self.showouts = set()
 
+    @staticmethod
+    def history_to_player(declarer, history, strain):
+        player = declarer + 1
+        current_trick = 0
+        out = []
+
+        best_card = None
+        best_player = None
+
+        for card in history:
+            out.append(player)
+            current_trick += 1
+            if current_trick == 1:
+                best_card, best_player = card, player
+            elif card.suit == best_card.suit:
+                if card > best_card:
+                    best_card, best_player = card, player
+            elif card.suit == strain:
+                best_card, best_player = card, player
+
+            if current_trick == 4:
+                player = best_player
+                current_trick = 0
+
+        return out
+
+    def get_player_history(self):
+        return PlayDeal.history_to_player(self.declarer, self.history,
+            self.strain)
+
     def original_player_suit_count(self, player, suit):
         return len(self.hands_left[player.i].by_suit[suit]) + \
             len(self.hands_played[player.i].by_suit[suit])
@@ -102,9 +132,9 @@ class PlayDeal:
         if len(self.current_trick) > 0:
             led_suit = self.current_trick[0].suit
             if card.suit != led_suit:
-                if self.hands_left[self.next_play.i].by_suit:
-                    raise ValueError("Player %s is not out of %s" %
-                        (self.next_play, led_suit))
+                if self.hands_left[self.next_play.i].by_suit[led_suit]:
+                    raise ValueError("Player %s is not out of %s -- %s" %
+                        (self.next_play, led_suit, self.hands_left[self.next_play.i]))
                 self.showouts.add(ShowOut(self.next_play, led_suit,
                     self.original_player_suit_count(self.next_play, led_suit)))
 
