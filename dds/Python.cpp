@@ -16,6 +16,18 @@ const char* SUITS = "SHDC";
 const char* RANKS = "23456789TJQKA";
 const char* DIRS = "WNES";
 
+#define RETURN_ASSERT   return PyErr_Format(PyExc_AssertionError, "Horror occured at %s:%d", __FILE__, __LINE__)
+
+
+static int bitcount(int a)
+{
+    int b = (a & 0x5555) + ((a>>1) & 0x5555);
+    int c = (b & 0x3333) + ((b>>2) & 0x3333);
+    int d = (c & 0x0f0f) + ((c>>4) & 0x0f0f);
+    int e = (d & 0x00ff) + ((d>>8) & 0x00ff);
+    return e;
+}
+
 
 static int string_to_dir(const char* s)
 {
@@ -38,7 +50,16 @@ static int string_to_dir(const char* s)
 }
 
 
-static int char_to_rank(char c)
+static int char_to_rank_number(char c)
+{
+    for (int i=0 ; i<13 ; i++)
+        if (RANKS[i] == c)
+            return i + 2;
+    return -1;
+}
+
+
+static int char_to_rank_bit(char c)
 {
     for (int i=0 ; i<13 ; i++)
         if (RANKS[i] == c)
@@ -107,18 +128,9 @@ static void suit_rank_str(int suit, int rank, char* card)
 
 
 static PyObject*
-python_tuple_to_deal(struct deal& dl, PyObject* tuple)
+python_objects_to_deal(struct deal& dl, PyObject* py_deal, const char* declarer,
+    const char* strain)
 {
-    // deal, declarer, strain
-    PyObject* py_deal;
-    const char* declarer;
-    const char* strain;
-    if (!PyArg_ParseTuple(tuple, "O!ss", _deal_type, &py_deal, &declarer,
-        &strain))
-    {
-        return NULL;
-    }
-
     int dec_dir_id = string_to_dir(declarer);
     if (dec_dir_id == -1)
         return PyErr_Format(PyExc_ValueError, "Bad declarer '%s'", declarer);
@@ -162,7 +174,7 @@ python_tuple_to_deal(struct deal& dl, PyObject* tuple)
             }
 
             while (*pyu) {
-                int r = char_to_rank(*pyu);
+                int r = char_to_rank_bit(*pyu);
                 if (r < 0) {
                     Py_DECREF(ranks);
                     Py_DECREF(hand);
@@ -179,6 +191,23 @@ python_tuple_to_deal(struct deal& dl, PyObject* tuple)
 
     // don't need to incref because my consumers don't use the value
     return Py_None;
+}
+
+
+static PyObject*
+python_tuple_to_deal(struct deal& dl, PyObject* tuple)
+{
+    // deal, declarer, strain
+    PyObject* py_deal;
+    const char* declarer;
+    const char* strain;
+    if (!PyArg_ParseTuple(tuple, "O!ss", _deal_type, &py_deal, &declarer,
+        &strain))
+    {
+        return NULL;
+    }
+
+    return python_objects_to_deal(dl, py_deal, declarer, strain);
 }
 
 
@@ -299,7 +328,6 @@ load_boards_pbn(PyObject* py_deal_list, struct boardsPBN& boards,
         boards.deals[num_deals].remainCards[i++] = ':';
 
         for (int j=0 ; j<4 ; j++) {
-            int count = 0;
 	    if (j != 0) {
 		if (i >= 78) {
                     Py_DECREF(py_deal);
@@ -367,7 +395,7 @@ dds_solve_many_plays(PyObject* self, PyObject* args)
         ctSuit[i] = char_to_suit(trick_so_far[i*2]);
         if (ctSuit[i] == -1)
             return PyErr_Format(PyExc_ValueError, "Bad suit in '%s'", trick_so_far);
-        ctRank[i] = char_to_rank(trick_so_far[i*2+1]);
+        ctRank[i] = char_to_rank_number(trick_so_far[i*2+1]);
         if (ctRank[i] < 0)
             return PyErr_Format(PyExc_ValueError, "Bad rank in '%s'", trick_so_far);
         ctNonZero += 1;
@@ -528,6 +556,142 @@ dds_analyze_many_plays(PyObject* self, PyObject* args)
 }
 
 
+static PyObject*
+dds_analyze_deal_play(PyObject* self, PyObject* args)
+{
+    PyObject* py_deal;
+    const char* declarer_dir;
+    const char* strain;
+    const char* history;
+    if (!PyArg_ParseTuple(args, "O!sss", _deal_type, &py_deal,
+        &declarer_dir, &strain, &history))
+    //
+        return NULL;
+
+    struct deal the_deal;
+    python_objects_to_deal(the_deal, py_deal, declarer_dir, strain);
+
+    int historyLen = strlen(history);
+    if (historyLen > 104)
+        return PyErr_Format(PyExc_ValueError, "Play history too long");
+    if (historyLen % 2 != 0)
+        return PyErr_Format(PyExc_ValueError, "Play history odd length");
+
+    int player_id = the_deal.first;
+    int goods[52], bads[52];
+    bool was_good[52];
+
+    for (int i=0 ; i<historyLen ; i+=2)
+    {
+        struct futureTricks futs;
+        int ret = SolveBoard(the_deal, -1, 3, 0, &futs, 0);
+        if (ret < 0)
+            return dds_error(ret);
+
+        int best_score = futs.score[0];
+        int played_suit = char_to_suit(history[i]);
+        if (played_suit == -1)
+            return PyErr_Format(PyExc_ValueError, "Bad suit '%c' at position %d of history", history[i], i);
+        int played_rank = char_to_rank_number(history[i+1]);
+        if (played_rank == -1)
+            return PyErr_Format(PyExc_ValueError, "Bad rank '%c' at position %d of history", history[i+1], i+1);
+
+        if ((the_deal.remainCards[player_id][played_suit] & (1 << played_rank)) == 0)
+            return PyErr_Format(PyExc_ValueError,
+                "Card '%c%c' at position %d not in player %c's hand",
+                history[i], history[i+1], i, DIRS[player_id]);
+
+        bool found_played = false;
+        goods[i/2] = 0;
+        bads[i/2] = 0;
+        for (int cc=0 ; cc<futs.cards ; cc++)
+        {
+            bool this_is_played = false;
+            if (played_suit == futs.suit[cc]) {
+                if (played_rank == futs.rank[cc] ||
+                    ((1<<played_rank) & futs.equals[cc]) != 0)
+                {
+                    if (found_played) 
+                        RETURN_ASSERT;
+                    this_is_played = true;
+                    found_played = true;
+                }
+            }
+
+            int n = 1 + bitcount(futs.equals[cc]);
+            if (futs.score[cc] == best_score) {
+                goods[i/2] += n;
+                if (this_is_played)
+                    was_good[i/2] = true;
+            } else if (futs.score[cc] < best_score) {
+                bads[i/2] += n;
+                if (this_is_played)
+                    was_good[i/2] = false;
+            } else {
+                RETURN_ASSERT;
+            }
+        }
+        if (!found_played)
+            RETURN_ASSERT;
+
+        /// Prepare the board for the next trick!
+        the_deal.remainCards[player_id][played_suit] &= ~(1<<played_rank);
+
+        int cit = (i%8) / 2 + 1;
+        if (cit < 4) {
+            the_deal.currentTrickSuit[cit-1] = played_suit;
+            the_deal.currentTrickRank[cit-1] = played_rank;
+            player_id = (player_id+1)%4;
+        } else {
+            int i0 = i - 6;
+            int best_j = 0;
+            int best_suit = char_to_suit(history[i0]);
+            int best_rank = char_to_rank_number(history[i0+1]);
+            for (int j=1 ; j<4 ; j++) {
+                int suit = char_to_suit(history[i0+j*2]);
+                int rank = char_to_rank_number(history[i0+j*2+1]);
+
+                if (suit == best_suit) {
+                    if (rank > best_rank) {
+                        best_j = j;
+                        best_rank = rank;
+                    }
+                } else if (suit == the_deal.trump) {
+                    best_j = j;
+                    best_suit = suit;
+                    best_rank = rank;
+                }
+            }
+
+            the_deal.first = (the_deal.first + best_j) % 4;
+            player_id = the_deal.first;
+            for (int j=0 ; j<3 ; j++) {
+                the_deal.currentTrickSuit[j] = 0;
+                the_deal.currentTrickRank[j] = 0;
+            }
+        }
+    }
+
+    // Analysis done!  Prepare the result
+    PyObject* out_list = PyList_New(historyLen/2);
+    if (out_list == NULL)
+        return NULL;
+
+    for (int i=0 ; i<historyLen/2 ; i++) {
+        PyObject* py_tupe = Py_BuildValue("iiO", goods[i], bads[i],
+            was_good[i] ? Py_True : Py_False);
+
+        if (py_tupe == NULL) {
+            Py_DECREF(out_list);
+            return NULL;
+        }
+        PyList_SET_ITEM(out_list, i, py_tupe);
+    }
+
+    return out_list;
+}
+
+
 const char* solve_deal_desc =
 "Solve a single deal\n"
 "Takes three parameters:\n"
@@ -570,11 +734,25 @@ const char* analyze_many_plays_desc =
 "   representing DD tricks (declarer's PoV).  This list is one longer\n"
 "   than the number of cards in parameter 4";
 
+const char* analyze_deal_play_desc =
+"Analayze plays from a single deal\n"
+"Takes four parameters:\n"
+"   1. A bridgemoose.Deal object\n"
+"   2. Declarer (string 'W','N','E', or 'S')\n"
+"   3. Strain (string 'C','D','H','S', or 'N')\n"
+"   4. The play history as a compressed string format, example:\n"
+"      'S4SJSQSAC4D2CKC5'\n"
+"\n"
+"Returns a list of three-tuples, one for each play in parameter 4\n"
+"of the format (num_good_moves, num_bad_moves, was_good)\n"
+"of type (int, int, bool)\n";
+
 static PyMethodDef DdsMethods[] = {
     {"solve_deal", dds_solve_deal, METH_VARARGS, solve_deal_desc},
     {"solve_many_deals", dds_solve_many_deals, METH_VARARGS, solve_many_deals_desc},
     {"solve_many_plays", dds_solve_many_plays, METH_VARARGS, solve_many_plays_desc},
     {"analyze_many_plays", dds_analyze_many_plays, METH_VARARGS, analyze_many_plays_desc},
+    {"analyze_deal_play", dds_analyze_deal_play, METH_VARARGS, analyze_deal_play_desc},
     {NULL, NULL, 0, NULL}
 };
 
