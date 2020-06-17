@@ -19,7 +19,7 @@ class PartialHand:
     def _load_from_string(self, data):
         suits = re.split(r"/|\.", data)
         if len(suits) != 4:
-            raise ValueError("Expected 4 suits")
+            raise ValueError("Expected 4 suits, got '%s'" % (data))
 
         loc = []
         for i, ranks in enumerate(suits):
@@ -67,13 +67,9 @@ class PartialHand:
     __sub__ = op_maker(operator.sub)
     __add__ = op_maker(operator.__or__)
 
-class PlayDeal:
-    def __init__(self, deal, declarer, contract, vulnerable):
-        if isinstance(deal, Deal):
-            self.hands_left = [PartialHand(h) for h in [deal.W, deal.N, deal.E, deal.S]]
-        else:
-            self.hands_left = deal
-
+class PlayView:
+    def __init__(self, declarer, contract, vulnerable):
+        self.hands_left = [None] * 4
         self.hands_played = [PartialHand("///") for _ in range(4)]
         self.declarer = Direction(declarer)
         self.next_play = self.declarer + 1
@@ -89,26 +85,6 @@ class PlayDeal:
         self.defense_tricks = 0
         self.showouts = set()
     
-    def view(self):
-        v = PlayDeal(self.hands_left, self.declarer, self.contract,
-            self.vulnerable)
-        visible = [self.next_play.i]
-        if self.next_play == self.dummy:
-            visible.append(self.declarer.i)
-        if self.history:
-            visible.append(self.dummy.i)
-
-        v.next_play = self.next_play
-        v.hands_left = [h if i in visible else PartialHand(set()) for
-            i, h in enumerate(v.hands_left)]
-        v.hands_played = list(self.hands_played)
-        v.history = list(self.history)
-        v.current_trick = list(self.current_trick)
-        v.declarer_tricks = self.declarer_tricks
-        v.defense_tricks = self.defense_tricks
-        v.showouts = set(self.showouts)
-        return v
-
 
     @staticmethod
     def history_to_player(declarer, history, strain):
@@ -136,13 +112,19 @@ class PlayDeal:
 
         return out
 
-    def get_player_history(self):
-        return PlayDeal.history_to_player(self.declarer, self.history,
-            self.strain)
+    def set_hand(self, direction, hand):
+        if not self.hands_left[direction.i] is None:
+            raise ValueError("Hand %s already set", direction)
+        if self.hands_played[direction.i].cards:
+            raise ValueError("Cards already played")
+        self.hands_left[direction.i] = hand
 
-    def original_player_suit_count(self, player, suit):
-        return len(self.hands_left[player.i].by_suit[suit]) + \
-            len(self.hands_played[player.i].by_suit[suit])
+    def set_dummy(self, hand):
+        self.set_hand(self.dummy, hand)
+
+    def get_player_history(self):
+        return PlayView.history_to_player(self.declarer, self.history,
+            self.strain)
 
     def play_card(self, card):
         if isinstance(card, str):
@@ -150,20 +132,23 @@ class PlayDeal:
         if not isinstance(card, Card):
             raise TypeError("Want Card")
 
-        if not card in self.hands_left[self.next_play.i].cards:
-            raise ValueError("Card %s not held by %s" % (card, self.next_play))
+        next_hand = self.hands_left[self.next_play.i]
+        if next_hand is not None:
+            if not card in next_hand.cards:
+                raise ValueError("Card %s not held by %s" % (card, self.next_play))
+            self.hands_left[self.next_play.i] -= {card}
 
         if len(self.current_trick) > 0:
             led_suit = self.current_trick[0].suit
             if card.suit != led_suit:
-                if self.hands_left[self.next_play.i].by_suit[led_suit]:
+                if next_hand is not None and next_hand.by_suit[led_suit]:
                     raise ValueError("Player %s is not out of %s -- %s" %
-                        (self.next_play, led_suit, self.hands_left[self.next_play.i]))
+                        (self.next_play, led_suit, next_hand))
+
                 self.showouts.add(ShowOut(self.next_play, led_suit,
-                    self.original_player_suit_count(self.next_play, led_suit)))
+                    len(self.hands_played[self.next_play.i].by_suit[led_suit])))
 
         self.hands_played[self.next_play.i] += {card}
-        self.hands_left[self.next_play.i] -= {card}
         self.history.append(card)
         self.current_trick.append(card)
         self.next_play += 1
@@ -189,7 +174,7 @@ class PlayDeal:
         self.current_trick = []
 
 
-__all__ = ["PartialHand", "PlayDeal", "ShowOut"]
+__all__ = ["PartialHand", "PlayView", "ShowOut"]
 
 if __name__ == "__main__":
     p1 = PartialHand("952/Q32/QT9/KJ97")

@@ -25,6 +25,8 @@ class Direction:
 
     def __str__(self):
         return Direction.ALL[self.i]
+    def __repr__(self):
+        return "Direction(%s)" % (Direction.ALL[self.i],)
 
     def __eq__(self, other):
         return isinstance(other, Direction) and self.i == other.i
@@ -35,5 +37,9 @@ class Direction:
     def all_dirs():
         return list([Direction(i) for i in range(4)])
 
+Direction.EAST = Direction("E")
+Direction.WEST = Direction("W")
+Direction.NORTH = Direction("N")
+Direction.SOUTH = Direction("S")
 
 __all__ = ["Direction"]
