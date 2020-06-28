@@ -1,5 +1,5 @@
-from collections import namedtuple
 import math
+from collections import Counter
 
 from . import dds
 from . import scoring
@@ -32,16 +32,15 @@ class Statistic:
     def __str__(self):
         return "%.2f +/- %.2f" % (self.mean, self.std_error())
         
-ContractDeclarer = namedtuple("ContractDeclarer", "contract declarer")
-
 def dd_compare_strategies(deal_generator, strategy1, strategy2, scoring="IMPS",
     vulnerability=None):
     """\
-Return a Statistic() measuring how much better (or worse if mean is negative)
-strategy1 is compared to strategy2.  The score is always computed from
-the N-S point of view.
+Returns a triple; a Statistic and two collections.Counter objects.
+The Statistic returns the score from the NS point of view of strategy1
+vs. strategy2.  The Counters are essentially dicts mapping ("<contract-declarer>", score) pairs to counts.
 
-A "strategy" is a function which takes a Deal and returns a ContractDeclarer
+A "strategy" is a function which takes a Deal and returns a ContractDeclarer,
+which is a string like "3NT-W"
 
 "Scoring" can be 'IMPS', 'matchpoints', 'TOTAL'.
 
@@ -69,28 +68,36 @@ A "strategy" is a function which takes a Deal and returns a ContractDeclarer
     sign = {"N":1, "S":1, "E":-1, "W":-1}
 
     stat = Statistic()
+    count1 = Counter()
+    count2 = Counter()
+
     for deal in deal_generator:
         cd1 = strategy1(deal)
         cd2 = strategy2(deal)
-        if cd1 == cd2:
+        con1, dec1 = cd1.split("-")
+        con2, dec2 = cd2.split("-")
+        if (con1,dec1) == (con2,dec2):
             stat.add_data_point(0.0)
 
-        strain1 = cd1.contract[1]
-        strain2 = cd2.contract[2]
+        strain1 = con1[1]
+        strain2 = con2[1]
 
-        if (strain1, cd1.declarer) == (strain2, cd2.declarer):
-            tx1 = dds.solve_deal(deal, cd1.declarer, strain1)
+        if (strain1, dec1) == (strain2, dec2):
+            tx1 = dds.solve_deal(deal, dec1, strain1)
             tx2 = tx1
         else:
             tx1, tx2 = dds.solve_many_deals([
-                (deal, cd1.declarer, strain1),
-                (deal, cd2.declarer, strain2)])
+                (deal, dec1, strain1),
+                (deal, dec2, strain2)])
 
-        score1 = sign[cd1.declarer] * scoring.result_score(cd1.contract,
-            tx1, cd1.declarer in vul)
-        score2 = sign[cd2.declarer] * scoring.result_score(cd2.contract,
-            tx2, cd2.declarer in vul)
+        score1 = sign[dec1] * scoring.result_score(con1,
+            tx1, dec1 in vul)
+        score2 = sign[dec2] * scoring.result_score(con2,
+            tx2, dec2 in vul)
 
         stat.add_data_point(score_func(score1 - score2))
+        count1[(cd1, score1)] += 1
+        count2[(cd2, score2)] += 1
 
-    return stat
+
+    return stat, count1, count2
