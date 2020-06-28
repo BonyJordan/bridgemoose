@@ -32,8 +32,8 @@ class Statistic:
     def __str__(self):
         return "%.2f +/- %.2f" % (self.mean, self.std_error())
         
-def dd_compare_strategies(deal_generator, strategy1, strategy2, scoring="IMPS",
-    vulnerability=None):
+def dd_compare_strategies(deal_generator, strategy1, strategy2,
+    score_type="IMPS", vulnerability=None):
     """\
 Returns a triple; a Statistic and two collections.Counter objects.
 The Statistic returns the score from the NS point of view of strategy1
@@ -56,11 +56,11 @@ which is a string like "3NT-W"
     else:
         raise ValueError("Vulnerability should be '', 'NS', 'EW', or 'NSEW'")
 
-    if scoring.upper() in ('IMPS', 'IMP'):
+    if score_type.upper() in ('IMPS', 'IMP'):
         score_func = scoring.scorediff_imps
-    elif scoring.upper() in ('MPS', 'MP', 'MATCHPOINTS'):
+    elif score_type.upper() in ('MPS', 'MP', 'MATCHPOINTS'):
         score_func = scoring.scorediff_matchpoints
-    elif scoring.upper() in ('TOTAL'):
+    elif score_type.upper() in ('TOTAL'):
         score_func = lambda x: x
     else:
         raise ValueError("Scoring should be one of 'IMPS','matchpoints','TOTAL'")
