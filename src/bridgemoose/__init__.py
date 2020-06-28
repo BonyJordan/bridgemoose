@@ -17,6 +17,7 @@ from . import scoring
 from .scoring import *
 
 from . import dds
+from . import stats
 
 __all__ = []
 __all__.extend(card.__all__)
