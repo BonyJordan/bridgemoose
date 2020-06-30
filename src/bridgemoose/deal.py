@@ -161,16 +161,75 @@ class Deal:
             raise ValueError()
         return getattr(self, side)
 
-    def square_string(self, suit_symbols="CDHS"):
+    def square_string(self, played_cards=set()):
+        def my_str(hand, suit):
+            ranks = hand.str_for_suit(suit)
+            out = ""
+            later = ""
+            for rank in ranks:
+                if Card(suit, rank) in played_cards:
+                    later += rank
+                else:
+                    out += rank
+            if later:
+                out += "[%s]" % (later,)
+            return out
+
         out = ""
-        rss = list(reversed(suit_symbols))
-        for suit, symbol in zip("SHDC",rss):
-            out += "%8s%s %s\n" % ("", symbol, self.N.str_for_suit(suit))
-        for suit, symbol in zip("SHDC",rss):
-            out += "%s %-13s %s %-13s\n" % (symbol, self.W.str_for_suit(suit), symbol, self.E.str_for_suit(suit))
-        for suit, symbol in zip("SHDC",rss):
-            out += "%8s%s %s\n" % ("", symbol, self.S.str_for_suit(suit))
+        for suit in "SHDC":
+            out += "%8s%s %s\n" % ("", suit, my_str(self.N, suit))
+        for suit in "SHDC":
+            out += "%s %-13s %s %-13s\n" % (suit, my_str(self.W, suit),
+                suit, my_str(self.E, suit))
+        for suit in "SHDC":
+            out += "%8s%s %s\n" % ("", suit, my_str(self.S, suit))
         return out
+
+    def fancy_square_string(self, played_cards=None):
+        if played_cards is None:
+            played_cards = set()
+        else:
+            played_cards = set(played_cards)
+
+        out = ""
+        SYMS = {
+            "S": "\033[34m\u2660\033[0m",
+            "H": "\033[31m\u2665\033[0m",
+            "D": "\033[31;1m\u2666\033[0m",
+            "C": "\033[32m\u2663\033[0m",
+        }
+
+        def prep_suit(hand, suit):
+            out = "%s " % (SYMS[suit],)
+            bold_mode = False
+            ranks = hand.str_for_suit(suit)
+            for rank in ranks:
+                card = Card(suit, rank)
+                if card in played_cards and bold_mode:
+                    out += "\033[0m"
+                    bold_mode = False
+                elif not card in played_cards and not bold_mode:
+                    out += "\033[1m"
+                    bold_mode = True
+                out += rank
+            if bold_mode:
+                out += "\033[0m"
+            return out, len(ranks)
+
+        fancy_out = ""
+        for suit in "SHDC":
+            fancy_out += "%8s %s\n" % ("", prep_suit(self.N, suit)[0])
+
+        for suit in "SHDC":
+            pw, nw = prep_suit(self.W, suit)
+            pe, _  = prep_suit(self.E, suit)
+            fancy_out += "%s %*s %s\n" % (pw, 13-nw, "", pe)
+
+        for suit in "SHDC":
+            fancy_out += "%8s %s\n" % ("", prep_suit(self.S, suit)[0])
+
+        return fancy_out
+
 
     def __getitem__(self, index):
         if isinstance(index, Direction):
