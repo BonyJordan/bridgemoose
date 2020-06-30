@@ -17,6 +17,7 @@ from . import scoring
 from .scoring import *
 
 from . import dds
+from . import simplebot
 from . import stats
 
 __all__ = []
