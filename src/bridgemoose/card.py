@@ -68,4 +68,39 @@ a positive number if r1>r2, 0 if r1==r2, negative if r1<r2
     return Card.RANK_ORDER[r1] - Card.RANK_ORDER[r2]
 
 
-__all__ = ["Card", "cmp_rank"]
+def suit_as_good_as(suit, template):
+    """\
+Takes two suits as string in rank order (e.g. "AQ95") and determines whether
+the suit represented by the first argument (suit) is at least as good as
+the suit represented by the second argument.  To be at least as good, suit
+must be at least as long as template, and each card in each position must
+be of equal or better rank.
+
+For example, KT3 is better than K92, but not better than KJ2 or QJ2 or Q432.
+If template is a list or tuple, return whether suit is better than any of
+them.  (For example ["QTxx", "Kxxx"]).
+
+You might define a suit as having a NT stopper as, for example,
+suit_as_good_as(suit, ["A", "Kx", "QTx", "JTxx", "J98x", "xxxxx"])
+if that suits your judgement.
+    """
+    def check_one(suit, single):
+        if len(suit) < len(single):
+            return False
+        for a, b in zip(suit, single):
+            if b == 'x':
+                return True
+            elif cmp_rank(a, b) < 0:
+                return False
+        return True
+
+    if isinstance(template, str):
+        return check_one(suit, template)
+    else:
+        for single in template:
+            if check_one(suit, single):
+                return True
+        return False
+
+
+__all__ = ["Card", "cmp_rank", "suit_as_good_as"]
