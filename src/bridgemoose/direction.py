@@ -33,6 +33,17 @@ class Direction:
     def __hash__(self):
         return hash(self.i)
 
+    def same_side(self, other):
+        other = Direction(other)
+        return (self.i & 1) == (other.i & 1)
+
+    def opp_side(self, other):
+        other = Direction(other)
+        return (self.i & 1) != (other.i & 1)
+
+    def dir_pair(self):
+        return ["EW", "NS", "EW", "NS"][self.i]
+
     @staticmethod
     def all_dirs():
         return list([Direction(i) for i in range(4)])

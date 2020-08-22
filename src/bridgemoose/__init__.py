@@ -1,3 +1,6 @@
+from . import auction
+from .auction import *
+
 from . import card
 from .card import *
 
@@ -21,6 +24,7 @@ from . import simplebot
 from . import stats
 
 __all__ = []
+__all__.extend(auction.__all__)
 __all__.extend(card.__all__)
 __all__.extend(deal.__all__)
 __all__.extend(direction.__all__)

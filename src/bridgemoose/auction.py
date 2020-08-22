@@ -1,4 +1,87 @@
+import re
 from .direction import Direction
+
+class Contract:
+    RE = re.compile("([1-7])([CcDdHhSsNn]|NT|nt)([x*]{0,2})$")
+
+    def __init__(self, spec):
+        if isinstance(spec, Contract):
+            self.level = spec.level
+            self.tricks_needed = spec.tricks_needed
+            self.strain = spec.strain
+            self.double_state = spec.double_state
+            return
+
+        mo = Contract.RE.match(spec)
+        if not mo:
+            raise ValueError("Bad contract \"" + spec + "\"")
+
+        self.level = int(mo.group(1))
+        self.tricks_needed = 6 + self.level
+        self.strain = mo.group(2)
+        self.double_state = len(mo.group(3))
+
+    def __repr__(self):
+        return "%d%s%s" % (self.level, self.strain, "xx"[:self.double_state])
+
+    def __eq__(self, other):
+        o = Contract(other)
+        return self.level == o.level and self.strain == o.strain and self.double_state == o.double_state
+
+    def __hash__(self):
+        return hash((self.level, self.strain, self.double_state))
+
+class DeclaredContract:
+    RE = re.compile("([1-7])([CcDdHhSsNn]|NT|nt)([x*]{0,2})-([NEWS])$")
+
+    def __init__(self, *args):
+        if len(args) == 4:
+            level, strain, double_state, declarer = args
+            if level < 1 or level > 7:
+                raise ValueError("bad level")
+            if double_state < 0 or double_state > 2:
+                raise ValueError("bad double state")
+            if strain not in ("C","D","H","S","N","NT"):
+                raise ValueError("bad strain")
+
+            self.level = level
+            self.tricks_needed = 6 + level
+            self.strain = strain
+            self.double_state = double_state
+            self.declarer = Direction(declarer)
+            return
+        elif len(args) != 1:
+            raise ValueError("I m confused")
+
+        spec = args[0]
+
+        if isinstance(spec, DeclaredContract):
+            self.level = spec.level
+            self.tricks_needed = spec.tricks_needed
+            self.strain = spec.strain
+            self.double_state = spec.double_state
+            self.declarer = spec.declarer
+            return
+
+        mo = DeclaredContract.RE.match(spec)
+        if not mo:
+            raise ValueError("Bad contract \"" + spec + "\"")
+
+        self.level = int(mo.group(1))
+        self.tricks_needed = 6 + self.level
+        self.strain = mo.group(2)
+        self.double_state = len(mo.group(3))
+        self.declarer = Direction(mo.group(4))
+
+    def __repr__(self):
+        return "%d%s%s-%s" % (self.level, self.strain, "xx"[:self.double_state], self.declarer)
+
+    def __eq__(self, other):
+        o = DeclaredContract(other)
+        return self.level == o.level and self.strain == o.strain and self.double_state == o.double_state and self.declarer == o.declarer
+
+    def __hash__(self):
+        return hash((self.level, self.strain, self.double_state, self.declarer))
 
 class Bid:
     STRAINS = ["C","D","H","S","NT"]
@@ -129,8 +212,7 @@ output is a final contract <level><strain><double>"-"<dir>.  Example "3NTx-W"
         continue
 
     key = (last_bid_dir.dir_pair(), last_bid.strain)
-    return "%s%s-%s" % (last_bid, ["", "x", "xx"][double_state],
+    return DeclaredContract(last_bid.level, last_bid.strain, double_state,
         first_bid_strain[key])
 
-
-__all__ = ["Bid", "auction_to_contract"]
+__all__ = ["Bid", "Contract", "DeclaredContract", "auction_to_contract"]
