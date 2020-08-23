@@ -5,7 +5,7 @@ class Contract:
     RE = re.compile("([1-7])([CcDdHhSsNn]|NT|nt)([x*]{0,2})$")
 
     def __init__(self, spec):
-        if isinstance(spec, Contract):
+        if isinstance(spec, (Contract, DeclaredContract)):
             self.level = spec.level
             self.tricks_needed = spec.tricks_needed
             self.strain = spec.strain
