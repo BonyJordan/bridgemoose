@@ -1,5 +1,29 @@
 from .auction import Contract
+from .direction import Direction
 import bisect
+
+def declarer_vulnerable(declarer, board_vulnerability):
+    """\
+Takes a declarer and a 'board-wide vulnerability' string, which could be
+    "both" or "b" for both,
+    "ns" or "n" for north/south,
+    "ew" or "e" for east/west,
+    "none" or "-" for none
+
+    and returns whether this particular declarer is vulnerable.
+    """
+    d = Direction(declarer)
+    bv = board_vulnerability.lower()
+    if bv in ("both", "b"):
+        return True
+    elif bv in ("none", "-"):
+        return False
+    elif bv in ("ns", "n"):
+        return d.dir_pair == "NS"
+    elif bv in ("ew", "e"):
+        return d.dir_pair == "EW"
+    else:
+        raise ValueError("Bad board_vulnerability")
 
 def scorediff_imps(diff):
     """
