@@ -73,7 +73,11 @@ are triples as described above.
 
     out = defaultdict(lambda: (Statistic(), Counter(), Counter()))
 
+    deals = []
+    queries = []
     for deal in deal_generator:
+        deals.append(deal)
+
         cd1 = strategy1(deal) if callable(strategy1) else strategy1
         cd2 = strategy2(deal) if callable(strategy2) else strategy2
         con1, dec1 = cd1.split("-")
@@ -83,12 +87,30 @@ are triples as described above.
         strain2 = con2[1]
 
         if (strain1, dec1) == (strain2, dec2):
-            tx1 = dds.solve_deal(deal, dec1, strain1)
+            queries.append((deal, dec1, strain1))
+        else:
+            queries.append((deal, dec1, strain1))
+            queries.append((deal, dec2, strain2))
+
+    answers = []
+    for i in range(0, len(queries), 200):
+        answers.extend(dds.solve_many_deals(queries[i:i+200]))
+
+    for deal in deals:
+        cd1 = strategy1(deal) if callable(strategy1) else strategy1
+        cd2 = strategy2(deal) if callable(strategy2) else strategy2
+        con1, dec1 = cd1.split("-")
+        con2, dec2 = cd2.split("-")
+
+        strain1 = con1[1]
+        strain2 = con2[1]
+
+        if (strain1, dec1) == (strain2, dec2):
+            tx1 = answers.pop(0)
             tx2 = tx1
         else:
-            tx1, tx2 = dds.solve_many_deals([
-                (deal, dec1, strain1),
-                (deal, dec2, strain2)])
+            tx1 = answers.pop(0)
+            tx2 = answers.pop(0)
 
         score1 = sign[dec1] * scoring.result_score(con1,
             tx1, dec1 in vul)

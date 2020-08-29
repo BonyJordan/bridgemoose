@@ -775,7 +775,7 @@ PyInit_dds(void)
     if (_hand_type == NULL)
         return NULL;
 
-    SetMaxThreads(1);
+    SetMaxThreads(0);
 
     return PyModule_Create(&ddsmodule);
 }
