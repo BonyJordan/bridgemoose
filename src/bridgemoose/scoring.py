@@ -97,4 +97,9 @@ def result_score(contract, tricks, vulnerable):
 
     return btl_points + bonus
 
-__all__ = ["scorediff_imps", "scorediff_matchpoints", "result_score"]
+__all__ = [
+    "declarer_vulnerable",
+    "result_score",
+    "scorediff_imps",
+    "scorediff_matchpoints",
+]
