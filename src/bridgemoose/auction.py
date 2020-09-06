@@ -148,6 +148,41 @@ class Bid:
     def __str__(self):
         return "%d%s" % (self.level, self.strain)
 
+def auction_next_to_call(dealer, auction):
+    """\
+dealer is a string W, N, E, S or a bridgemoose.Direction,
+auction is a string of comma separated calls.
+
+output is a bridgemoose.Direction or None if the auction is over.
+    """
+    turn = Direction(dealer)
+    num_passes = 0
+    any_bids = False
+    for call in auction.split(","):
+        if num_passes == 4:
+            return ValueError("Action after 4 passes")
+        if num_passes == 3 and any_bids:
+            return ValueError("Action after bidding then 3 passes")
+
+        if call in ["P", "p", "Pass", "PASS"]:
+            num_passes += 1
+            turn += 1
+            continue
+        elif call in ["D", "Dbl", "X", "Double", "R", "Redouble", "XX"]:
+            num_passes = 0
+            turn += 1
+            continue
+
+        num_passes = 0
+        any_bids = True
+        turn += 1
+        continue
+
+    if num_passes == 4 or num_passes == 3 and any_bids:
+        return None
+    else:
+        return turn
+
 def auction_to_contract(dealer, auction):
     """\
 dealer is a string W, N, E, S or a bridgemoose.Direction,
@@ -215,4 +250,10 @@ output is a final contract <level><strain><double>"-"<dir>.  Example "3NTx-W"
     return DeclaredContract(last_bid.level, last_bid.strain, double_state,
         first_bid_strain[key])
 
-__all__ = ["Bid", "Contract", "DeclaredContract", "auction_to_contract"]
+__all__ = [
+    "Bid",
+    "Contract",
+    "DeclaredContract",
+    "auction_next_to_call",
+    "auction_to_contract",
+]
