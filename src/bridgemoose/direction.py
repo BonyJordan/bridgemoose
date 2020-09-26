@@ -44,6 +44,15 @@ class Direction:
     def dir_pair(self):
         return ["EW", "NS", "EW", "NS"][self.i]
 
+    def is_ew(self):
+        return self.i & 1 == 0
+
+    def is_ns(self):
+        return self.i & 1 == 1
+
+    def side_index(self):
+        return self.i & 1
+
     @staticmethod
     def all_dirs():
         return list([Direction(i) for i in range(4)])
