@@ -13,7 +13,7 @@ card play which maximizes the score.
     """
 
     def __init__(self, trials=10, error_weight=0.1, open_lead_error_weight=0.3,
-        scoring="imps"):
+        scoring_type="imps"):
         """\
 - trials is the number of double dummy hands to play
 - error_weight says how much weight to consider if a previous play by an
@@ -27,11 +27,11 @@ card play which maximizes the score.
         self.error_weight = error_weight
         self.open_lead_error_weight = open_lead_error_weight
 
-        if scoring == "imps":
+        if scoring_type == "imps":
             self.scorer = scoring.scorediff_imps
-        elif scoring == "total":
+        elif scoring_type == "total":
             self.scorer = lambda x: x
-        elif scoring == "matchpoints":
+        elif scoring_type == "matchpoints":
             self.scorer = scoring.scorediff_matchpoints
         else:
             raise ValueError("scoring must be 'imps', 'matchpoints', or 'total'")
