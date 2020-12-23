@@ -117,7 +117,12 @@ class PlayView:
             raise ValueError("Hand %s already set", direction)
         if self.hands_played[direction.i].cards:
             raise ValueError("Cards already played")
-        self.hands_left[direction.i] = hand
+        if isinstance(hand, Hand):
+            self.hands_left[direction.i] = PartialHand(hand)
+        elif isinstance(hand, PartialHand):
+            self.hands_left[direction.i] = hand
+        else:
+            raise TypeError(hand, "Want Hand or PartialHand")
 
     def set_dummy(self, hand):
         self.set_hand(self.dummy, hand)
