@@ -25,7 +25,10 @@ class Statistic:
         self.sum_squares += weight * delta * (x - self.mean)
 
     def sample_variance(self):
-        return self.sum_squares / (self.sum_weight - self.sum_weight_sq / self.sum_weight)
+        if self.sum_squares == 0:
+            return 0
+        else:
+            return self.sum_squares / (self.sum_weight - self.sum_weight_sq / self.sum_weight)
 
     def std_error(self):
         return math.sqrt(self.sample_variance() * self.sum_weight_sq) / self.sum_weight
@@ -53,7 +56,7 @@ are triples as described above.
     """
     if vulnerability is None:
         vul = ""
-    elif vulnerability is "NOTH":
+    elif vulnerability in ("BOTH", "b"):
         vul = "NSEW"
     elif vulnerability in ("", "NS", "EW", "NSEW", "EWNS"):
         vul = vulnerability
