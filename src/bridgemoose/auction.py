@@ -2,7 +2,7 @@ import re
 from .direction import Direction
 
 class Contract:
-    RE = re.compile("([1-7])([CcDdHhSsNn]|NT|nt)([x*]{0,2})$")
+    RE = re.compile("([1-7])([CcDdHhSsNn]|NT|nt)([xX*]{0,2})$")
 
     def __init__(self, spec):
         if isinstance(spec, (Contract, DeclaredContract)):
