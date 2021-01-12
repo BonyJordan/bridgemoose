@@ -11,6 +11,14 @@ class Contract:
             self.strain = spec.strain
             self.double_state = spec.double_state
             return
+        elif isinstance(spec, Bid):
+            self.level = spec.level
+            self.strain = spec.strain
+            self.tricks_needed = 6 + self.level
+            self.double_state = 0
+            return
+        elif not isinstance(spec, str):
+            raise TypeError("str, Bid, Contract, DeclaredContract allowed")
 
         mo = Contract.RE.match(spec)
         if not mo:
@@ -110,6 +118,24 @@ class Bid:
         if not isinstance(other, Bid):
             raise TypeError()
         return self.step() - other.step()
+
+    @staticmethod
+    def all_bids():
+        cur = Bid("1C")
+        top = Bid("7N")
+        while True:
+            yield cur
+            if cur == top:
+                break
+            cur = cur + 1
+
+    def all_above(self):
+        """ A generator iterating over all bids above this one """
+        cur = self
+        top = Bid("7N")
+        while cur < top:
+            cur = cur + 1
+            yield cur
 
     def __lt__(self, other):
         return self.cmp(other) < 0
