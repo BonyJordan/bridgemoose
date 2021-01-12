@@ -103,10 +103,12 @@ deal_accept  : can be None or a callable which takes a Deal and returns True/Fal
     misses = 0
     hits = 0
     dealer = RestrictedDealer(west, north, east, south, deal_accept, rng)
-    while (count is None or hits<count) and (fail_count is None or misses<fail_count):
+    while count is None or hits < count:
         d = dealer.one_try()
         if d is None:
             misses += 1
+            if hits == 0 and fail_count is not None and misses >= fail_count:
+                raise ValueError("No hits found - is your clause possible?")
         else:
             hits += 1
             yield d
