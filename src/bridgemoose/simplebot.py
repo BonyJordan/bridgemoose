@@ -219,7 +219,7 @@ Inputs are:
         views[dum.i] = dec_view
 
         opening_lead = True
-        while pd.declarer_tricks + pd.defense_tricks < 13:
+        while dec_view.declarer_tricks + dec_view.defense_tricks < 13:
             play = self.smart_play(views[dec_view.next_play.i], accept)
             print("The play is %s" % (play,))
             if opening_lead:
