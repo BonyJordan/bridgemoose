@@ -1,7 +1,7 @@
 import random
 
 from . import Card, Deal, Direction, Hand, PartialHand, PlayView
-from . import dds, scoring, random_deals
+from . import dds, scoring, semi_random_deals
 
 class SimpleBot:
     """\
@@ -13,7 +13,7 @@ card play which maximizes the score.
     """
 
     def __init__(self, trials=10, error_weight=0.1, open_lead_error_weight=0.3,
-        scoring_type="imps"):
+        scoring_type="imps", debug=False):
         """\
 - trials is the number of double dummy hands to play
 - error_weight says how much weight to consider if a previous play by an
@@ -23,6 +23,7 @@ card play which maximizes the score.
 - scoring: can be 'imps', 'matchpoints', or 'total'\
         """
 
+        self.debug = debug
         self.trials = trials
         self.error_weight = error_weight
         self.open_lead_error_weight = open_lead_error_weight
@@ -37,6 +38,8 @@ card play which maximizes the score.
             raise ValueError("scoring must be 'imps', 'matchpoints', or 'total'")
 
     def smart_play(self, pd, accept):
+        if self.debug:
+            print("pd.hands_left=", pd.hands_left[pd.next_play.i])
         if not pd.current_trick and len(pd.hands_left[pd.next_play.i]) == 13:
             return self.opening_lead(pd, accept)
         if pd.current_trick:
@@ -65,7 +68,7 @@ card play which maximizes the score.
         history_str = "".join(map(str, pd.history))
 
         weights = []
-        debug = False
+        debug = self.debug
         for deal in deals:
             weight = 1.0
             adp_out = dds.analyze_deal_play(deal, str(pd.declarer),
@@ -82,7 +85,7 @@ card play which maximizes the score.
                 if debug:
                     print("modify for %s by %f / %f" % (pd.history[i], num, den))
             weights.append(weight)
-            debug = False
+            debug = self.debug
 
         return weights
 
@@ -94,7 +97,7 @@ card play which maximizes the score.
         return self.weighted_play_choice(pd, deals, weights)
 
     def weighted_play_choice(self, pd, deals, weights):
-        debug = True
+        debug = self.debug
 
         smp_list = [tuple([
             str(PartialHand(deal[d]) - pd.hands_played[d.i])
@@ -159,14 +162,14 @@ card play which maximizes the score.
         raise NotImplemented
 
     def generate_matching_deals(self, pd, accept, known_dirs):
-        debug = False
+        debug = self.debug
 
         fixed_cards = dict()
         for d in Direction.all_dirs():
             if d in known_dirs:
-                fixed_cards[str(d)] = str(pd.hands_played[d.i] + pd.hands_left[d.i])
+                fixed_cards[str(d)] = pd.hands_played[d.i] + pd.hands_left[d.i]
             else:
-                fixed_cards[str(d)] = str(pd.hands_played[d.i])
+                fixed_cards[str(d)] = pd.hands_played[d.i]
 
         if debug:
             print("fixed_cards=", fixed_cards)
@@ -179,8 +182,8 @@ card play which maximizes the score.
             else:
                 return accept(deal)
 
-        return list(random_deals(
-            self.trials, showout_accept, fixed_cards=fixed_cards))
+        return list(semi_random_deals(
+            self.trials, showout_accept, fixed_cards))
 
 
     def play_out_deal(self, deal, declarer, contract, vulnerable, accept):
@@ -198,6 +201,7 @@ Inputs are:
     to know how to interpret auctions, so you, the human, have to do the
     work for it.\
         """
+        debug = self.debug
 
         lho_view = PlayView(declarer, contract, vulnerable)
         rho_view = PlayView(declarer, contract, vulnerable)
@@ -221,8 +225,10 @@ Inputs are:
         opening_lead = True
         while dec_view.declarer_tricks + dec_view.defense_tricks < 13:
             play = self.smart_play(views[dec_view.next_play.i], accept)
-            print("The play is %s" % (play,))
+            if debug:
+                print("The play is %s" % (play,))
             if opening_lead:
+                opening_lead = False
                 for view in [lho_view, rho_view, dec_view]:
                     view.set_dummy(deal[dum])
             for view in [lho_view, rho_view, dec_view]:
