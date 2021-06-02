@@ -1,7 +1,7 @@
 import random
 
 from . import Card, Deal, Direction, Hand, PartialHand, PlayView
-from . import dds, scoring, semi_random_deals
+from . import dds, scoring
 
 class SimpleBot:
     """\
@@ -182,8 +182,9 @@ card play which maximizes the score.
             else:
                 return accept(deal)
 
-        return list(semi_random_deals(
-            self.trials, showout_accept, fixed_cards))
+        assert False
+#        return list(semi_random_deals(
+#            self.trials, showout_accept, fixed_cards))
 
 
     def play_out_deal(self, deal, declarer, contract, vulnerable, accept):
