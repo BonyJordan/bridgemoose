@@ -5,7 +5,8 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 module_dds = setuptools.Extension('bridgemoose.dds',
-    define_macros = [('DDS_THREADS_GCD', None), ('DDS_THREADS_STL', None)],
+    # define_macros = [('DDS_THREADS_GCD', None), ('DDS_THREADS_STL', None)],
+    define_macros = [('DDS_THREADS_STL', None)],
     extra_compile_args = ['-std=c++11'],
     sources=[os.path.join('dds', x) for x in [
         "ABsearch.cpp",
