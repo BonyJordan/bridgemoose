@@ -1,6 +1,6 @@
 import collections
 import itertools
-from .direction import Direction
+from .direction import *
 from .card import Card
 
 class Hand:
@@ -118,15 +118,18 @@ with the following useful analytics defined:
                     else:
                         self.qt += 0.5
 
-    def str_for_suit(self, suit):
+    def str_for_suit(self, suit, void_symbol="-"):
         b = self.by_suit[suit]
         if len(b) == 0:
-            return "-"
+            return void_symbol
         else:
             return b
 
     def __str__(self):
         return "/".join([self.str_for_suit(s) for s in "SHDC"])
+
+    def lin_string(self):
+        return "".join([s+self.str_for_suit(s,"") for s in "SHDC"])
 
     def square_string(self, suit_symbols="CDHS"):
         return  "\n".join(["%s %s" % (symbol, self.str_for_suit(suit)) for 
@@ -230,6 +233,20 @@ class Deal:
 
         return fancy_out
 
+    def lin_string(self, /, board_num=None, set_num=0, dealer="S", vuln="-"):
+        # sv tag -> "o", "n", "e", "b"
+        # md tag -> 2 = West.  Start w/ South "SQ9543HK82DQT4CJ5," example.
+        if board_num is not None:
+            dealer, vuln = board_number_to_dealer_vuln(board_num)
+        else:
+            dealer = Direction(dealer)
+            vuln = Vuln(vuln)
+            board_num = dealer_vuln_to_board_number(dealer, vuln)
+
+        return "st||pn|,,,|md|%d%s,%s,%s,%s|sv|%s|rh||ah|Board %d|" % (
+            (dealer.i+2)%4, self.S.lin_string(),
+            self.W.lin_string(), self.N.lin_string(),
+            self.E.lin_string(), "oneb"[vuln.data], board_num + 16*set_num)
 
     def __getitem__(self, index):
         if isinstance(index, Direction):

@@ -20,6 +20,8 @@ class Direction:
     def __sub__(self, other):
         if isinstance(other, int):
             return Direction( (self.i - other) & 3)
+        elif isinstance(other, Direction):
+            return (self.i - other.i) & 3
         else:
             raise TypeError()
 
@@ -81,9 +83,12 @@ class Vuln:
                  "n": Vuln.NS_BIT,
                  "ns": Vuln.NS_BIT,
                  "b": Vuln.EW_BIT | Vuln.NS_BIT,
-                 "both": Vuln.EW_BIT | Vuln.NS_BIT}
-            if data in m:
-                self.data = m[data]
+                 "both": Vuln.EW_BIT | Vuln.NS_BIT,
+                 "all": Vuln.EW_BIT | Vuln.NS_BIT,
+                }
+            lc = data.lower()
+            if lc in m:
+                self.data = m[lc]
             else:
                 raise ValueError("Strings are from -,e,n,b")
         elif isinstance(data, Vuln):
@@ -111,5 +116,19 @@ class Vuln:
     def all_vulns():
         return list([Vuln(i) for i in range(4)])
 
+def board_number_to_dealer_vuln(num):
+    n = (num+15) % 16
+    d = n % 4
+    v = (d + (n//4)) % 4
+    return Direction.NORTH + d, Vuln("-neb"[v])
 
-__all__ = ["Direction", "Vuln"]
+def dealer_vuln_to_board_number(dealer, vuln):
+    dix = (Direction(dealer).i - Direction.NORTH.i) & 3
+    vix = Vuln(vuln).data
+    delta = (vix + 4 - dix) % 4
+    return 1 + delta*4 + dix
+
+
+
+__all__ = ["Direction", "Vuln", "board_number_to_dealer_vuln",\
+    "dealer_vuln_to_board_number"]
