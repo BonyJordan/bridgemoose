@@ -11,6 +11,12 @@ class Card(collections.namedtuple("Card", "suit rank")):
     def rank_order(r):
         return RANK_ORDER[r]
 
+    @staticmethod
+    def all():
+        for s in SUITS:
+            for r in RANKS:
+                yield Card(s, r)
+
     SUIT_UNICODE = {'C': u'\u2663', 'D': u'\u2666', 'H': u'\u2665', 'S': u'\u2660'}
     SUIT_HTML = {'C': '&clubs;', 'D':'<FONT color="red">&diams;</FONT>', 'H':'<FONT color="red">&hearts;</FONT>', 'S':'&spades;'}
 
