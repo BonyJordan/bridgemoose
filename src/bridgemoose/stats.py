@@ -31,6 +31,8 @@ class Statistic:
             return self.sum_squares / (self.sum_weight - self.sum_weight_sq / self.sum_weight)
 
     def std_error(self):
+        if self.sum_weight <= 0:
+            return 0.0
         return math.sqrt(self.sample_variance() * self.sum_weight_sq) / self.sum_weight
 
     def __str__(self):
