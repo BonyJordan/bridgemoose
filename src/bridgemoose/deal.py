@@ -17,9 +17,10 @@ with the following useful analytics defined:
 * ssp:             short suit points (1 doubleton, 2 singleton, 3 void)
 * count:           map from suit to length.  count["C"] is the same as nc.
 * rank_count:      map from rank (e.g. '2' or 'J') to an integer 0,1,2,3,4
-* by_suit:         map from suit to a list of ranks.  by_suit["D"] == D.
+* by_suit:         map from suit to a string of ranks.
 * shape:           a tuple of 4 ints from high to low (e.g. (5,3,3,2)
 * pattern:         a tuple of 4 ints in S-H-D-C order
+* cards:           a set of Card objects
     """
 
     HCP_MAP = {r:0 for r in Card.RANKS}
