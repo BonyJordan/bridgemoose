@@ -225,7 +225,8 @@ void System::GetHardware(
 #ifdef __linux__
   // The code for linux was suggested by Antony Lee.
   FILE * fifo = popen(
-    "free -k | tail -n+3 | head -n1 | awk '{print $NF}'", "r");
+//    "free -k | tail -n+3 | head -n1 | awk '{print $NF}'", "r");
+    "free -k | awk '/Mem:/ {print $NF}'", "r");
   int ignore = fscanf(fifo, "%llu", &kilobytesFree);
   fclose(fifo);
 
