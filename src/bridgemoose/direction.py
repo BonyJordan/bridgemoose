@@ -31,7 +31,7 @@ class Direction:
         return "Direction(%s)" % (Direction.ALL[self.i],)
 
     def __eq__(self, other):
-        return isinstance(other, Direction) and self.i == other.i
+        return self.i == Direction(other).i
     def __hash__(self):
         return hash(self.i)
 
