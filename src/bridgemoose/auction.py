@@ -98,11 +98,14 @@ class Bid:
         if len(args) == 1 and type(args[0]) == str:
             self.level = int(args[0][0])
             self.strain = args[0][1:].upper()
+        elif len(args) == 1 and type(args[0]) == Bid:
+            self.level = args[0].level
+            self.strain = args[0].strain
         elif len(args) == 2:
             self.level = int(args[0])
             self.strain = args[1].upper()
         else:
-            raise TypeError()
+            raise TypeError("Bad Bid")
 
         if self.level < 1 or self.level > 7:
             raise TypeError("Bad level")
@@ -115,9 +118,7 @@ class Bid:
         return self.level * 5 + Bid.STRAINS.index(self.strain) - 5
 
     def cmp(self, other):
-        if not isinstance(other, Bid):
-            raise TypeError()
-        return self.step() - other.step()
+        return self.step() - Bid(other).step()
 
     @staticmethod
     def all_bids():
@@ -174,6 +175,172 @@ class Bid:
     def __str__(self):
         return "%d%s" % (self.level, self.strain)
 
+class Auction:
+    def __init__(self, dealer, bids=None):
+        """
+Create a new Auction object.  Paramater bids can be a comma separated
+list of calls.
+        """
+        self.dealer = dealer
+        self.first_strain_calls = dict()
+        self.all_calls = []
+        self.history = []
+
+        self.next_dir = Direction(dealer)
+        self.last_bid = None
+        self.last_bid_dir = None
+        self.num_doubles = 0
+        self.num_passes = 0
+
+        if bids is not None and bids != "":
+            for call in bids.split(","):
+                self.add_call(call)
+
+    def __iter__(self):
+        return iter(self.all_calls)
+
+    def __len__(self):
+        return len(self.all_calls)
+
+    def __getitem__(self, idx):
+        return self.all_calls[idx]
+
+    def clone(self):
+        out = Auction(self.dealer)
+        for call in self.all_calls:
+            out.add_call(call)
+        return out
+
+    def done(self):
+        if self.last_bid is None and self.num_passes == 4:
+            return True
+        elif self.last_bid is not None and self.num_passes == 3:
+            return True
+        else:
+            return False
+
+    def final_contract(self):
+        if not self.done():
+            raise TypeError("Auction not finished")
+
+        # ye olde Passe Out
+        if self.last_bid is None:
+            return None
+
+        key = (self.last_bid_dir.side_index(), self.last_bid.strain)
+        dec, bid = self.first_strain_calls[key]
+        return DeclaredContract(self.last_bid.level, self.last_bid.strain,
+            self.num_doubles, dec)
+
+    def add_call(self, call):
+        if isinstance(call, Bid):
+            call = str(call)
+        if not isinstance(call, str):
+            raise TypeError("Calls are expected to be strings")
+
+        if call in ["P", "p", "Pass", "PASS"]:
+            call = "P"
+        elif call in ["D", "Dbl", "X", "Double"]:
+            call = "X"
+        elif call in ["R", "Redouble", "XX"]:
+            call = "XX"
+
+        lc = self.legal_calls()
+        if lc is None:
+            raise ValueError("Auction is over")
+        elif not call in lc:
+            raise ValueError(f"Call '{call}' is not legal here")
+
+        self.all_calls.append(call)
+        self.history.append((self.last_bid, self.last_bid_dir, self.num_doubles, self.num_passes))
+
+        cur_dir = self.next_dir
+        self.next_dir += 1
+
+        if call == "P":
+            self.num_passes += 1
+            return
+
+        if call == "X":
+            self.num_passes = 0
+            self.num_doubles = 1
+            return
+
+        if call == "XX":
+            self.num_passes = 0
+            self.num_doubles = 2
+            return
+
+        # The call was a bid
+        bid = Bid(call)
+        key = (cur_dir.side_index(), bid.strain)
+        if key not in self.first_strain_calls:
+            self.first_strain_calls[key] = (cur_dir, bid)
+
+        self.last_bid = bid
+        self.last_bid_dir = cur_dir
+        self.num_doubles = 0
+        self.num_passes = 0
+
+    def rem_call(self):
+        if len(self.all_calls) == 0:
+            raise ValueError("No calls to remove")
+
+        self.next_dir -= 1
+        off = self.all_calls.pop()
+        self.last_bid, self.last_bid_dir, self.num_doubles, self.num_passes = self.history.pop()
+
+        if off in ["P","X","XX"]:
+            return
+        bid = Bid(off)
+        key = (self.next_dir.side_index(), bid.strain)
+        fdir, fbid = self.first_strain_calls[key]
+        if bid == fbid:
+            del self.first_strain_calls[key]
+
+    def legal_calls(self):
+        """ Return a list of all legal calls """
+        if self.done():
+            return None
+
+        out = ["P"]
+        if self.last_bid is None:
+            out.extend(str(x) for x in Bid.all_bids())
+        else:
+            out.extend(str(x) for x in self.last_bid.all_above())
+            if self.num_doubles == 0 and self.next_dir.opp_side(self.last_bid_dir):
+                out.append("X")
+            elif self.num_doubles == 1 and self.next_dir.same_side(self.last_bid_dir):
+                out.append("XX")
+
+        return out
+
+    def __str__(self):
+        return str(self.dealer) + ":" + ",".join(self.all_calls)
+
+
+
+
+def auction_min_new_bid(auction):
+    """\
+auction is a string of comma separated calls.  Returns a Bid object
+representing the lowest legal bid a player may make, or None in the
+unlikely case we are at 7nt.
+    """
+    last_bid = None
+    for call in reversed(auction.split(",")):
+        if call in ["P", "p", "Pass", "PASS"]:
+            continue
+        elif call in ["D", "Dbl", "X", "Double", "R", "Redouble", "XX"]:
+            continue
+
+        last_bid = Bid(call)
+    else:
+        return Bid("1C")
+
+
+
+
 def auction_next_to_call(dealer, auction):
     """\
 dealer is a string W, N, E, S or a bridgemoose.Direction,
@@ -214,7 +381,7 @@ def auction_to_contract(dealer, auction):
 dealer is a string W, N, E, S or a bridgemoose.Direction,
 auction is a string of comma separated calls.
 
-output is a final contract <level><strain><double>"-"<dir>.  Example "3NTx-W"
+output is a DeclaredContract object such as "3NTx-W"
     """
     turn = Direction(dealer)
     last_bid = None
@@ -277,6 +444,7 @@ output is a final contract <level><strain><double>"-"<dir>.  Example "3NTx-W"
         first_bid_strain[key])
 
 __all__ = [
+    "Auction",
     "Bid",
     "Contract",
     "DeclaredContract",
