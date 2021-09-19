@@ -259,17 +259,17 @@ list of calls.
 
         if call == "P":
             self.num_passes += 1
-            return
+            return self
 
         if call == "X":
             self.num_passes = 0
             self.num_doubles = 1
-            return
+            return self
 
         if call == "XX":
             self.num_passes = 0
             self.num_doubles = 2
-            return
+            return self
 
         # The call was a bid
         bid = Bid(call)
@@ -281,6 +281,8 @@ list of calls.
         self.last_bid_dir = cur_dir
         self.num_doubles = 0
         self.num_passes = 0
+
+        return self
 
     def rem_call(self):
         if len(self.all_calls) == 0:
