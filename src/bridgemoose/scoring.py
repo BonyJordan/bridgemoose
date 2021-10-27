@@ -89,7 +89,7 @@ def result_score(contract, tricks, vulnerable):
     # overtricks
     overtricks = tricks - con.tricks_needed
     if con.double_state > 0:
-        bonus += overtricks * con.double_state * (100 if vulnerable else 50)
+        bonus += overtricks * con.double_state * (200 if vulnerable else 100)
     elif con.strain in "CcDd":
         bonus += overtricks * 20
     else:
