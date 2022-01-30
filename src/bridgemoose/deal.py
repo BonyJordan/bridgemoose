@@ -38,9 +38,9 @@ with the following useful analytics defined:
         if type(cards) is str:
             self.init_for_string(cards)
         elif type(cards) is list:
-            self.init_for_set(set(cards))
+            self.init_for_iterable(cards)
         elif type(cards) is set:
-            self.init_for_set(cards)
+            self.init_for_iterable(cards)
         else:
             raise TypeError("bad type: %s for" % (type(cards)), cards)
 
@@ -55,17 +55,17 @@ with the following useful analytics defined:
                 assert ch in Card.RANKS
                 thecards.add(Card(s, ch))
         assert len(thecards) == 13
-        self.init_for_set(thecards)
+        self.init_for_iterable(thecards)
 
-    def init_for_set(self, cards):
+    def init_for_iterable(self, cards):
         raw_by_suit = {suit:"" for suit in Card.SUITS}
-        self.cards = set(cards)
+        self.cards = set(Card(c) for c in cards)
         self.hcp = 0
         self.rp = 0
         self.control_points = 0
         self.rank_count = {r:0 for r in Card.RANKS}
 
-        for c in cards:
+        for c in self.cards:
             raw_by_suit[c.suit] += c.rank
             self.hcp += Hand.HCP_MAP[c.rank]
             self.rp += Hand.RP_MAP[c.rank]
