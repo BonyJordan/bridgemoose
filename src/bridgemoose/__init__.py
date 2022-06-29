@@ -10,6 +10,9 @@ from .deal import *
 from . import direction
 from .direction import *
 
+from . import handset
+from .handset import *
+
 from . import play
 from .play import *
 

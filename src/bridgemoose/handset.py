@@ -22,7 +22,7 @@ class HandSet:
 
     def sample(self, rng=random, and_me=True):
         if and_me:
-            work = self & m.HAND
+            work = self & HandMakers.HAND
         else:
             work = self
 
@@ -449,14 +449,14 @@ class ShapeMaker:
 
         out = HandSet(BDD.FALSE)
         for pat in so_far:
-            pat_bdd = functools.reduce(HandSet.__and__, [x == y for x, y in zip([m.NUM_SP, m.NUM_HE, m.NUM_DI, m.NUM_CL], pat)])
+            pat_bdd = functools.reduce(HandSet.__and__, [x == y for x, y in zip([HandMakers.NUM_SP, HandMakers.NUM_HE, HandMakers.NUM_DI, HandMakers.NUM_CL], pat)])
             out |= pat_bdd
 
         return out
 
 
 
-class m:
+class HandMakers:
     NUM_CARDS = SimpleHandMetric({c: 1 for c in HandSet.cards})
     HAND = (NUM_CARDS == 13)
 
@@ -520,9 +520,9 @@ class m:
 
 
 if __name__ == "__main__":
-    s5 = (m.NUM_SP >= 5)
-    h12 = (m.HCP >= 12)
-    a = s5 & h12 & m.HAND
+    s5 = (HandMakers.NUM_SP >= 5)
+    h12 = (HandMakers.HCP >= 12)
+    a = s5 & h12 & HandMakers.HAND
 
     hand1 = Hand("AKQJT/5432/Q2/52")
     hand3 = Hand("AKQJ/T5432/Q2/52")
@@ -533,23 +533,24 @@ if __name__ == "__main__":
     assert not a.contains(hand4)
     print(a.sample())
 
-    b = m.SHAPE("4432 + 4333 + 5332")
-    c = m.SHAPE("4432 + any 4333 + 5332")
-    d = m.SHAPE("4432 + any 4333 + 5332 - 3xxx")
+    b = HandMakers.SHAPE("4432 + 4333 + 5332")
+    c = HandMakers.SHAPE("4432 + any 4333 + 5332")
+    d = HandMakers.SHAPE("4432 + any 4333 + 5332 - 3xxx")
 
     hand5 = Hand("A763/K492/J72/Q3")
     assert d.contains(hand5)
-    assert (m.QUICKx2 == 3).contains(hand5)
+    assert (HandMakers.QUICKx2 == 3).contains(hand5)
 
-    assert m.AT_LEAST("S", "Kx").contains(hand5)
-    assert not m.AT_LEAST("C", "Kx").contains(hand5)
-    assert m.AT_LEAST("D", "Jxx").contains(hand5)
-    assert m.AT_LEAST("D", ["Kx","Jxx"]).contains(hand5)
+    assert HandMakers.AT_LEAST("S", "Kx").contains(hand5)
+    assert not HandMakers.AT_LEAST("C", "Kx").contains(hand5)
+    assert HandMakers.AT_LEAST("D", "Jxx").contains(hand5)
+    assert HandMakers.AT_LEAST("D", ["Kx","Jxx"]).contains(hand5)
     
 
     if False:
-        ds = m.NORTH(a)
+        ds = HandMakers.NORTH(a)
         for _ in range(5):
             print("------")
             print(ds.sample().square_string())
 
+__all__ = ["HandMakers"]
