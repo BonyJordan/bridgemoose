@@ -19,7 +19,7 @@ def parse_card_set(s):
     return out
 
 class RestrictedDealer:
-    def __init__(self, west=None, north=None, east=None, south=None, deal_accept=None, rng=None):
+    def __init__(self, west=None, north=None, east=None, south=None, accept=None, rng=None):
         if rng is None:
             self.rng = random
             self.sorting = False
@@ -29,7 +29,7 @@ class RestrictedDealer:
         self.cardset = set(Card.all())
         self.acceptors = dict()
         self.known_cards = {d: set() for d in Direction.ALL}
-        self.deal_accept = deal_accept
+        self.accept = accept
 
         for d, spec in zip("WNES", [west, north, east, south]):
             if spec is None:
@@ -67,8 +67,8 @@ class RestrictedDealer:
                 return None
 
         deal = Deal(hands['W'],hands['N'],hands['E'],hands['S'])
-        if self.deal_accept is not None:
-            if not self.deal_accept(deal):
+        if self.accept is not None:
+            if not self.accept(deal):
                 return None
         return deal
 
@@ -84,7 +84,7 @@ class RestrictedDealer:
         self.known_cards[d] = cset
 
 def random_deals(count, west=None, north=None, east=None, south=None,
-    deal_accept=None, rng=None, fail_count=100000):
+    accept=None, rng=None, fail_count=100000):
     """\
 Class to generate random deals.
 count       : stop generation after this many successes [None = infinite]
@@ -97,12 +97,12 @@ west, north, east, south: can each be one of:
     Hand, PartialHand - use the 13 cards from the object
     list, set - assumes 13 Card objects, sets exact value
     callable - a function which takes a Hand and returns True/False\
-deal_accept  : can be None or a callable which takes a Deal and returns True/False\
+accept  : can be None or a callable which takes a Deal and returns True/False\
 """
 
     misses = 0
     hits = 0
-    dealer = RestrictedDealer(west, north, east, south, deal_accept, rng)
+    dealer = RestrictedDealer(west, north, east, south, accept, rng)
     while count is None or hits < count:
         d = dealer.one_try()
         if d is None:
