@@ -201,6 +201,10 @@ Inputs are:
     or not the deal is consistent with the bidding.  SimpleBot is too dumb
     to know how to interpret auctions, so you, the human, have to do the
     work for it.\
+
+Outputs are:
+- number of tricks won by declaring side
+- list of cards played
         """
         debug = self.debug
 
@@ -257,7 +261,7 @@ SimpleBot algorithm.
 - dummy_hand: a bridgemoose.PartialHand containing dummy's original 13 cards,
     can be None if we are on opening lead.
 
-Returns a single bridgemoose.Card object\
+Returns a single bridgemoose.Card object
         """
 
 
