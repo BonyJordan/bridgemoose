@@ -223,16 +223,45 @@ dds_solve_many_deals(PyObject* self, PyObject* args)
     if (iter == NULL)
         return NULL;
 
+    PyObject* out_list = PyList_New(0);
     int num_deals = 0;
-    PyObject* py_deal;
-    while ((py_deal = PyIter_Next(iter))) {
-        if (num_deals >= MAXNOOFBOARDS) {
-            Py_DECREF(py_deal);
-            return PyErr_Format(PyExc_IndexError,
-                "At most %d deals at once", MAXNOOFBOARDS);
-        }
+    while (true) {
+	PyObject* py_deal = PyIter_Next(iter);
+        if (py_deal == NULL || num_deals >= MAXNOOFBOARDS)
+	{
+	    // Time to run a chunk!!
+	    struct solvedBoards solves;
+	    boards.noOfBoards = num_deals;
+	    int ret = SolveAllChunksBin(&boards, &solves, 1);
+	    if (ret < 0) {
+		if (py_deal != NULL)
+		    Py_DECREF(py_deal);
+		return dds_error(ret);
+	    }
 
-        PyObject* py_ret = python_tuple_to_deal(boards.deals[num_deals], py_deal);
+	    for (int i=0 ; i<solves.noOfBoards ; i++) {
+		PyObject* val = PyLong_FromLong(13 - solves.solvedBoard[i].score[0]);
+		if (val == NULL) {
+		    if (py_deal != NULL)
+			Py_DECREF(py_deal);
+		    Py_DECREF(out_list);
+		    return NULL;
+		}
+		if (PyList_Append(out_list,  val) < 0) {
+		    if (py_deal != NULL)
+			Py_DECREF(py_deal);
+		    Py_DECREF(out_list);
+		    return NULL;
+		}
+	    }
+	    num_deals = 0;
+	}
+
+	if (py_deal == NULL)
+	    break;
+
+        PyObject* py_ret = python_tuple_to_deal(boards.deals[num_deals],
+	    py_deal);
         if (py_ret != Py_None)
             return py_ret;
 
@@ -243,21 +272,6 @@ dds_solve_many_deals(PyObject* self, PyObject* args)
         Py_DECREF(py_deal);
     }
 
-    struct solvedBoards solves;
-    boards.noOfBoards = num_deals;
-    int ret = SolveAllChunksBin(&boards, &solves, 1);
-    if (ret < 0)
-        return dds_error(ret);
-
-    PyObject* out_list = PyList_New(solves.noOfBoards);
-    for (int i=0 ; i<solves.noOfBoards ; i++) {
-        PyObject* val = PyLong_FromLong(13 - solves.solvedBoard[i].score[0]);
-        if (val == NULL) {
-            Py_DECREF(out_list);
-            return NULL;
-        }
-        PyList_SET_ITEM(out_list, i, val);
-    }
     return out_list;
 }
 
