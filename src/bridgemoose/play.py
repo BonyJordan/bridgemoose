@@ -2,7 +2,7 @@ from collections import defaultdict, namedtuple
 import operator
 import re
 
-from . import Card, Deal, Direction, Hand
+from . import Card, Contract, Deal, Direction, Hand
 from .scoring import result_score
 
 ShowOut = namedtuple("ShowOut", "dir suit count")
@@ -74,8 +74,8 @@ class PlayView:
         self.declarer = Direction(declarer)
         self.next_play = self.declarer + 1
         self.dummy = self.next_play + 1
-        self.contract = contract
-        self.strain = contract[1]
+        self.contract = Contract(contract)
+        self.strain = self.contract.strain
         self.vulnerable = vulnerable
         self.score_table = [result_score(contract, i, vulnerable) for i in range(14)]
 
