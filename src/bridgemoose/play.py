@@ -11,7 +11,7 @@ class PartialHand:
     def __init__(self, data):
         if isinstance(data, str):
             self._load_from_string(data)
-        elif isinstance(data, Hand):
+        elif isinstance(data, (Hand,PartialHand)):
             self._load_from_cards(data.cards)
         else:
             self._load_from_cards(data)
@@ -84,6 +84,18 @@ class PlayView:
         self.declarer_tricks = 0
         self.defense_tricks = 0
         self.showouts = set()
+
+    def clone(self):
+        copy = PlayView(self.declarer, self.contract, self.vulnerable)
+        copy.hands_left = [None if x is None else PartialHand(x) for x in self.hands_left]
+        copy.hands_played = [PartialHand(x) for x in self.hands_played]
+        copy.next_play = self.next_play
+        copy.history = list(self.history)
+        copy.current_trick = list(self.current_trick)
+        copy.declarer_tricks = self.declarer_tricks
+        copy.defense_tricks = self.defense_tricks
+        copy.showouts = set(self.showouts)
+        return copy
     
 
     @staticmethod

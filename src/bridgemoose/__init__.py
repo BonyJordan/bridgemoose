@@ -23,6 +23,7 @@ from . import scoring
 from .scoring import *
 
 from . import dds
+from . import jbdd
 from . import logit
 from . import simplebot
 from . import stats

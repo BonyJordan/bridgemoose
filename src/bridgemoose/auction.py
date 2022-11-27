@@ -26,7 +26,7 @@ class Contract:
 
         self.level = int(mo.group(1))
         self.tricks_needed = 6 + self.level
-        self.strain = mo.group(2)
+        self.strain = mo.group(2)[0].upper()
         self.double_state = len(mo.group(3))
 
     def __repr__(self):
@@ -45,6 +45,7 @@ class DeclaredContract:
     def __init__(self, *args):
         if len(args) == 4:
             level, strain, double_state, declarer = args
+            strain = strain.upper()
             if level < 1 or level > 7:
                 raise ValueError("bad level")
             if double_state < 0 or double_state > 2:
@@ -54,7 +55,7 @@ class DeclaredContract:
 
             self.level = level
             self.tricks_needed = 6 + level
-            self.strain = strain
+            self.strain = strain[0]
             self.double_state = double_state
             self.declarer = Direction(declarer)
             return
@@ -77,7 +78,7 @@ class DeclaredContract:
 
         self.level = int(mo.group(1))
         self.tricks_needed = 6 + self.level
-        self.strain = mo.group(2)
+        self.strain = mo.group(2)[0].upper()
         self.double_state = len(mo.group(3))
         self.declarer = Direction(mo.group(4))
 
@@ -92,7 +93,7 @@ class DeclaredContract:
         return hash((self.level, self.strain, self.double_state, self.declarer))
 
 class Bid:
-    STRAINS = ["C","D","H","S","NT"]
+    STRAINS = ["C","D","H","S","N"]
 
     def __init__(self, *args):
         if len(args) == 1 and type(args[0]) == str:
@@ -109,8 +110,8 @@ class Bid:
 
         if self.level < 1 or self.level > 7:
             raise TypeError("Bad level")
-        if self.strain == "N":
-            self.strain = "NT"
+        if self.strain == "NT":
+            self.strain = "N"
         if not self.strain in Bid.STRAINS:
             raise TypeError("Bad strain")
 
@@ -238,12 +239,16 @@ list of calls.
         if not isinstance(call, str):
             raise TypeError("Calls are expected to be strings")
 
-        if call in ["P", "p", "Pass", "PASS"]:
+        call = call.upper()
+
+        if call in ["P", "PASS"]:
             call = "P"
-        elif call in ["D", "Dbl", "X", "Double"]:
+        elif call in ["D", "DBL", "X", "DOUBLE"]:
             call = "X"
-        elif call in ["R", "Redouble", "XX"]:
+        elif call in ["R", "REDOUBLE", "XX"]:
             call = "XX"
+        elif call[1:] == "NT":
+            call = call[0] + "N"
 
         lc = self.legal_calls()
         if lc is None:

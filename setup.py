@@ -4,6 +4,9 @@ import os
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+module_jbdd = setuptools.Extension('bridgemoose.jbdd',
+    sources=["jbdd/jbdd.cpp"])
+
 module_dds = setuptools.Extension('bridgemoose.dds',
     # define_macros = [('DDS_THREADS_GCD', None), ('DDS_THREADS_STL', None)],
     # define_macros = [('DDS_THREADS_STL', None)],
@@ -44,9 +47,9 @@ module_dds = setuptools.Extension('bridgemoose.dds',
 setuptools.setup(
     packages=setuptools.find_packages('src'),
     package_dir={'':'src'},
-    ext_modules=[module_dds],
+    ext_modules=[module_dds, module_jbdd],
     name="BridgeMoose",
-    version="0.1",
+    version="0.2",
     author="Jordan",
     author_email="jordan@jyjy.org",
     description="Analytic Tools for the card game, Bridge",

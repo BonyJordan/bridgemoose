@@ -5,84 +5,12 @@ import operator
 import random
 import re
 import time
-from .bdd import BDD
+from .direction import Direction
 from .card import Card
 from .deal import Deal, Hand
-from .direction import Direction
+from .jbdd import BDD
 
 debug = False
-
-class HandSet:
-    cards = [suit+rank for rank in "AKQJ" for suit in "SHDC"] +\
-        [suit+rank for suit in "SHDC" for rank in "T98765432"]
-    card_index = {c:i for i, c in enumerate(cards)}
-
-    def __init__(self, bdd):
-        self.bdd = bdd
-
-    def sample(self, rng=random, and_me=True):
-        if and_me:
-            work = self & HandMakers.HAND
-        else:
-            work = self
-
-        index = rng.randrange(work.bdd.count())
-        return Hand(HandSet.get_index(work.bdd, index))
-
-    @staticmethod
-    def get_index(bdd, index):
-        if bdd.x == 'T':
-            assert index == 0
-            return []
-        assert bdd.x != 'F'
-
-        if bdd.x > 0:
-            node = BDD._nodes_by_id[bdd.x]
-            ac = node.avec.count()
-            if index < ac:
-                return [HandSet.cards[node.var]] + HandSet.get_index(node.avec, index)
-            else:
-                return HandSet.get_index(node.sans, index - ac)
-        else:
-            node = BDD._nodes_by_id[-bdd.x]
-            ac = node.avec.ncount()
-            if index < ac:
-                return [HandSet.cards[node.var]] + HandSet.get_index(~node.avec, index)
-            else:
-                return HandSet.get_index(~node.sans, index-ac)
-
-    def __and__(self, other):
-        return HandSet(self.bdd & other.bdd)
-    def __or__(self, other):
-        return HandSet(self.bdd | other.bdd)
-    def __xor___(self, other):
-        return HandSet(self.bdd ^ other.bdd)
-    def __invert__(self):
-        return HandSet(~self.bdd)
-    def ite(self, t, e):
-        return HandSet(BDD.ite(self.bdd, t.bdd, e.bdd))
-
-    def contains(self, hand):
-        bdd = self.bdd
-        flip = False
-
-        while isinstance(bdd.x, int):
-            if bdd.x < 0:
-                flip = not flip
-            node = BDD._nodes_by_id[abs(bdd.x)]
-            card = Card(HandSet.cards[node.var])
-            if card in hand.cards:
-                bdd = node.avec
-            else:
-                bdd = node.sans
-
-        if flip and bdd.x == 'F':
-            return True
-        if not flip and bdd.x == 'T':
-            return True
-        return False
-
-
 
 
 class HandSetMetric:
@@ -92,17 +20,17 @@ class HandSetMetric:
 
     def __eq__(self, other):
         if isinstance(other, HandSetMetric):
-            raise NotImplemented
+            return (self - other) == 0
         elif isinstance(other, int):
             key = ("=", other)
             if key in self.cache:
-                return self.cache[key]
+                return HandSet(self.cache[key])
             else:
                 if self.values is None:
                     self._compute_values()
-                out = self.values.get(other, HandSet(BDD.FALSE))
+                out = self.values.get(other, BDD.false())
                 self.cache[key] = out
-                return out
+                return HandSet(out)
         else:
             raise TypeError(other)
 
@@ -122,7 +50,7 @@ class HandSetMetric:
     __le__ = cmp_func_make(operator.le, lambda self, n: self.less_than(n+1))
     __lt__ = cmp_func_make(operator.lt, lambda self, n: self.less_than(n))
     __ge__ = cmp_func_make(operator.ge, lambda self, n: ~self.less_than(n))
-    __gt__ = cmp_func_make(operator.ge, lambda self, n: ~self.less_than(n+1))
+    __gt__ = cmp_func_make(operator.gt, lambda self, n: ~self.less_than(n+1))
 
     def make_arith_func(op):
         def arith_func(self, other):
@@ -130,8 +58,8 @@ class HandSetMetric:
                 raise TypeError(other)
             
             out = dict()
-            for key1, val1 in self.scores.items():
-                for key2, val2 in other.scores.items():
+            for key1, val1 in self.values.items():
+                for key2, val2 in other.values.items():
                     key3 = op(key1, key2)
                     both = val1 & val2
                     if key3 in out:
@@ -155,32 +83,35 @@ class HandSetMetric:
             self._compute_values()
 
         if n < min(self.values.keys()):
-            return HandSet(BDD.FALSE)
+            return HandSet(BDD.false())
 
         key = ("<",n)
         if key in self.cache:
-            return self.cache[key]
+            return HandSet(self.cache[key])
 
         a = self.less_than(n-1)
-        b = self.values.get(n-1, HandSet(BDD.FALSE))
+        b = self.values.get(n-1, HandSet(BDD.false()))
         out = a | b
         self.cache[key] = out
-        return out
+        return HandSet(out)
 
 class SimpleHandMetric(HandSetMetric):
+    cards = [suit+rank for rank in "AKQJ" for suit in "SHDC"] +\
+        [suit+rank for suit in "SHDC" for rank in "T98765432"]
+    card_index = {c:i for i, c in enumerate(cards)}
+
     def __init__(self, scores):
-        values = {0: HandSet(BDD.TRUE)}
-        for card in reversed(sorted(scores, key=HandSet.card_index.get)):
+        values = {0: BDD.true()}
+        for card in reversed(sorted(scores, key=SimpleHandMetric.card_index.get)):
             card_value = scores[card]
             aveces = {val + card_value: hs for val, hs in values.items()}
             sanses = {val: hs for val, hs in values.items()}
 
             values = {}
             for val in aveces.keys() | sanses.keys():
-                a = aveces.get(val, HandSet(BDD.FALSE))
-                s = sanses.get(val, HandSet(BDD.FALSE))
-                n = HandSet(
-                    BDD.get_node(HandSet.card_index[card], a.bdd, s.bdd))
+                a = aveces.get(val, BDD.false())
+                s = sanses.get(val, BDD.false())
+                n = BDD(SimpleHandMetric.card_index[card]).thenelse(a, s)
                 values[val] = n
 
         super(SimpleHandMetric, self).__init__(values)
@@ -193,20 +124,20 @@ class QuickTricksMetric(HandSetMetric):
             key = sum(x[0] for x in tupe)
             val = functools.reduce(BDD.__and__, [x[1] for x in tupe])
             if key in values:
-                values[key] |= HandSet(val)
+                values[key] |= val
             else:
-                values[key] = HandSet(val)
+                values[key] = val
         super(QuickTricksMetric, self).__init__(values)
 
     @staticmethod
     def suit_values(suit):
-        ranks = [var for var, card in enumerate(HandSet.cards) if card[0] == suit]
-        have_x = BDD.FALSE
+        ranks = [var for var, card in enumerate(SimpleHandMetric.cards) if card[0] == suit]
+        have_x = BDD.false()
         for var in reversed(ranks[3:]):
-            have_x = BDD.get_node(var, BDD.TRUE, have_x)
-        have_q = BDD.variable(ranks[2])
-        have_k = BDD.variable(ranks[1])
-        have_a = BDD.variable(ranks[0])
+            have_x = BDD(var).thenelse(BDD.true(), have_x)
+        have_q = BDD(ranks[2])
+        have_k = BDD(ranks[1])
+        have_a = BDD(ranks[0])
 
         values = {}
         # 2.0 quick tricks: AK
@@ -222,13 +153,13 @@ class QuickTricksMetric(HandSetMetric):
         values[1] = ~have_a & have_k & ~have_q & have_x
 
         # 0.0 quick tricks: no A, [no K  or K but stiff]
-        values[0] = ~have_a & BDD.ite(have_k, ~have_q & ~have_x, BDD.TRUE)
+        values[0] = ~have_a & have_k.thenelse(~have_q & ~have_x, BDD.true())
 
         for a, b in itertools.combinations(values.values(), 2):
-            assert a & b == BDD.FALSE
+            assert a & b == BDD.false()
 
         red = functools.reduce(BDD.__or__, values.values())
-        assert red == BDD.TRUE, (red.bdd_graph_str())
+        assert red == BDD.true(), (red.bdd_graph_str())
 
         return values
 
@@ -238,10 +169,10 @@ class DealSet:
         self.d = d
 
     def sample(self, rng=random):
-        index = rng.randrange(self.d.count())
+        index = rng.randrange(self.d.pcount())
         bits = set(DealSet.get_bits(self.d, index))
         hand_lists = [[],[],[],[]]
-        for i, card in enumerate(HandSet.cards):
+        for i, card in enumerate(SimpleHandMetric.cards):
             owner = 2*(i*2+1 in bits) + 1*(i*2 in bits)
             hand_lists[owner].append(card)
 
@@ -249,25 +180,7 @@ class DealSet:
 
     @staticmethod
     def get_bits(bdd, index):
-        if bdd.x == 'T':
-            assert index == 0
-            return []
-        assert bdd.x != 'F'
-
-        if bdd.x > 0:
-            node = BDD._nodes_by_id[bdd.x]
-            ac = node.avec.count()
-            if index < ac:
-                return DealSet.get_bits(node.avec, index) + [node.var]
-            else:
-                return DealSet.get_bits(node.sans, index - ac)
-        else:
-            node = BDD._nodes_by_id[-bdd.x]
-            ac = node.avec.ncount()
-            if index < ac:
-                return DealSet.get_bits(~node.avec, index) + [node.var]
-            else:
-                return DealSet.get_bits(~node.sans, index-ac)
+        return bdd.get_pindex(index)
 
     def __and__(self, other):
         return DealSet(self.d & other.d)
@@ -278,7 +191,7 @@ class DealSet:
     def __invert__(self):
         return DealSet(~self.d)
     def ite(self, t, e):
-        return DealSet(BDD.ite(self.bdd, t.bdd, e.bdd))
+        return DealSet(self.bdd.thenelse(t.bdd, e.bdd))
 
 class DealSetConverter:
     four_hands = None
@@ -301,7 +214,7 @@ class DealSetConverter:
         def sub(tupe, index):
             return tuple(x - 1*(i==index) for i, x in enumerate(tupe))
 
-        tier = {(0,0,0,0) : BDD.TRUE}
+        tier = {(0,0,0,0) : BDD.true()}
         for k in range(1,N*4+1):
             next_tier = {}
 
@@ -313,10 +226,10 @@ class DealSetConverter:
                 if max(target) > N:
                     continue
 
-                subs = [tier.get(sub(target, i), BDD.FALSE) for i in range(4)]
-                tx = BDD.get_node(v2, subs[2], subs[3])
-                fx = BDD.get_node(v2, subs[0], subs[1])
-                next_tier[target] = BDD.get_node(v1, tx, fx)
+                subs = [tier.get(sub(target, i), BDD.false()) for i in range(4)]
+                tx = BDD(v2).thenelse(subs[2], subs[3])
+                fx = BDD(v2).thenelse(subs[0], subs[1])
+                next_tier[target] = BDD(v1).thenelse(tx, fx)
 
             tier = next_tier
 
@@ -324,39 +237,29 @@ class DealSetConverter:
         DealSetConverter.four_hands = tier[(N,N,N,N)]
 
     def _doit(self, bdd):
-        if isinstance(bdd.x, str):
+        split = bdd.split()
+        if split is True or split is False:
             return bdd
 
-        if bdd.x > 0:
-            x, flip = bdd.x, False
-        else:
-            x, flip = -bdd.x, True
+        if bdd in self.cache:
+            return self.cache[bdd]
 
-        if x in self.cache:
-            if flip:
-                return ~self.cache[x]
-            else:
-                return self.cache[x]
-
-        node = BDD._nodes_by_id[x]
-        avec = self._doit(node.avec)
-        sans = self._doit(node.sans)
+        var, avec, sans = split
+        avec = self._doit(avec)
+        sans = self._doit(sans)
 
         if self.player.i & 2:
-            n2 = BDD.get_node(2*node.var + 1, avec, sans)
+            n2 = BDD(2*var + 1).thenelse(avec, sans)
         else:
-            n2 = BDD.get_node(2*node.var + 1, sans, avec)
+            n2 = BDD(2*var + 1).thenelse(sans, avec)
 
         if self.player.i & 1:
-            n1 = BDD.get_node(2*node.var, n2, sans)
+            n1 = BDD(2*var).thenelse(n2, sans)
         else:
-            n1 = BDD.get_node(2*node.var, sans, n2)
+            n1 = BDD(2*var).thenelse(sans, n2)
 
-        self.cache[x] = n1
-        if flip:
-            return ~n1
-        else:
-            return n1
+        self.cache[bdd] = n1
+        return n1
 
 def tuple_to_pattern(tupe, n):
     s = [-1] + list(tupe) + [n + len(tupe)]
@@ -447,7 +350,7 @@ class ShapeMaker:
                 raise ValueError(f"Unexpected character `{mo.group()}' at pos {mo.start()+1}")
         state.do_end()
 
-        out = HandSet(BDD.FALSE)
+        out = HandSet(BDD.false())
         for pat in so_far:
             pat_bdd = functools.reduce(HandSet.__and__, [x == y for x, y in zip([HandMakers.NUM_SP, HandMakers.NUM_HE, HandMakers.NUM_DI, HandMakers.NUM_CL], pat)])
             out |= pat_bdd
@@ -457,9 +360,6 @@ class ShapeMaker:
 
 
 class HandMakers:
-    NUM_CARDS = SimpleHandMetric({c: 1 for c in HandSet.cards})
-    HAND = (NUM_CARDS == 13)
-
     NUM_CL = SimpleHandMetric({"C"+r: 1 for r in "AKQJT98765432"})
     NUM_DI = SimpleHandMetric({"D"+r: 1 for r in "AKQJT98765432"})
     NUM_HE = SimpleHandMetric({"H"+r: 1 for r in "AKQJT98765432"})
@@ -480,8 +380,8 @@ class HandMakers:
     TOP5 = SimpleHandMetric({s+r: 1 for s in "SHDC" for r in "AKQJT"})
     CONTROLS = SimpleHandMetric({s+r: v for s in "SHDC" for r, v in [('A',2), ('K',1)]})
     def CARD(card):
-        index = HandSet.card_index[card]
-        return HandSet(BDD.variable(index))
+        index = SimpleHandMetric.card_index[card]
+        return HandSet(BDD(index))
 
     QUICKx2 = QuickTricksMetric()
 
@@ -498,13 +398,13 @@ class HandMakers:
             cards = [(i, card) for i, card in enumerate(HandSet.cards) if card[0] == suit]
             assert len(cards) == 13, (len(cards), cards)
 
-            states = [BDD.FALSE]*len(spec) + [BDD.TRUE]
+            states = [BDD.false()]*len(spec) + [BDD.true()]
             for var, card in reversed(cards):
                 new_states = list(states)
                 for i, req in enumerate(spec):
                     if key[req] >= key[card[1]]:
-                        new_states[i] |= BDD.get_node(var,
-                            new_states[i+1], new_states[i])
+                        new_states[i] |= \
+                            BDD(var).thenelse(new_states[i+1], new_states[i])
                 states = new_states
             return HandSet(states[0])
 
@@ -517,6 +417,39 @@ class HandMakers:
     SOUTH = DealSetConverter("S")
     EAST = DealSetConverter("E")
     WEST = DealSetConverter("W")
+
+
+class HandSet:
+    NUM_CARDS = SimpleHandMetric({c: 1 for c in SimpleHandMetric.cards})
+    HAND = NUM_CARDS.values[13]
+
+    def __init__(self, bdd):
+        self.bdd = bdd & HandSet.HAND
+
+    def sample(self, rng=random):
+        index = rng.randrange(self.bdd.pcount())
+        return Hand([SimpleHandMetric.cards[i] for i in HandSet.get_index(self.bdd, index)])
+
+    def count(self):
+        return self.bdd.pcount()
+
+    @staticmethod
+    def get_index(bdd, index):
+        return bdd.get_pindex(index)
+
+    def __and__(self, other):
+        return HandSet(self.bdd & other.bdd)
+    def __or__(self, other):
+        return HandSet(self.bdd | other.bdd)
+    def __xor___(self, other):
+        return HandSet(self.bdd ^ other.bdd)
+    def __invert__(self):
+        return HandSet(~self.bdd)
+    def ite(self, t, e):
+        return HandSet(self.bdd.thenelse(t.bdd, e.bdd))
+
+    def contains(self, hand):
+        raise NotImplemented
 
 
 if __name__ == "__main__":
