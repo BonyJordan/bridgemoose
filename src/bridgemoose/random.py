@@ -2,6 +2,7 @@ import random
 from .deal import Card, Deal, Hand
 from .direction import Direction
 from .play import PartialHand
+from .handset import HandSet, HandMakers
 
 def parse_card_set(s):
     out = set()
@@ -28,10 +29,19 @@ class RestrictedDealer:
 
         self.cardset = set(Card.all())
         self.acceptors = dict()
+        self.dealset = None
         self.known_cards = {d: set() for d in Direction.ALL}
         self.accept = accept
+        args = [west, north, east, south]
 
-        for d, spec in zip("WNES", [west, north, east, south]):
+        if any(callable(x) for x in args):
+            self.init_with_callables(args)
+        else:
+            self.init_with_handsets(args)
+
+    def init_with_callables(self, args):
+        self.dealset = None
+        for d, spec in zip("WNES", args):
             if spec is None:
                 continue
             if isinstance(spec, str):
@@ -41,32 +51,69 @@ class RestrictedDealer:
                 self._process_card_set(d, spec.cards)
             elif callable(spec):
                 self.acceptors[d] = spec
+                any_callable = True
+            elif isinstance(spec, HandSet):
+                def acc(hand):
+                    return spec.contains(hand)
             else:
                 self._process_card_set(d, set(spec))
 
+    def init_with_handsets(self, args):
+        m = HandMakers
+        handsets = {}
+
+        def from_cards(cards):
+            hs = m.ANY
+            for card in cards:
+                hs &= m.CARD(card)
+            return hs
+
+        for d, spec in zip("WNES", args):
+            if spec is None:
+                handsets[d] = m.ANY
+            elif isinstance(spec, str):
+                handsets[d] = from_cards(Hand(spec).cards)
+            elif isinstance(spec, (Hand, PartialHand)):
+                handsets[d] = from_cards(spec)
+            elif callable(spec):
+                raise TypeError("This shouldn't happen")
+            elif isinstance(spec, HandSet):
+                handsets[d] = spec
+            else:
+                handsets[d] = from_cards(set(spec))
+
+        self.dealset = m.WEST(handsets["W"]) & m.EAST(handsets["E"]) & \
+            m.NORTH(handsets["N"]) & m.SOUTH(handsets["S"])
+
+
+
     def one_try(self):
-        # Must sort when
-        cardlist = list(self.cardset)
-        if self.sorting:
-            self.cardlist.sort()
-        self.rng.shuffle(cardlist)
-        n = 0
+        if self.dealset is None:
+            # Must sort when
+            cardlist = list(self.cardset)
+            if self.sorting:
+                self.cardlist.sort()
+            self.rng.shuffle(cardlist)
+            n = 0
 
-        hands = {}
-        for key in Direction.ALL:
-            known = self.known_cards[key]
-            k = 13 - len(known)
-            unknown = set(cardlist[n:n+k])
-            hands[key] = Hand(known | unknown)
-            n += k
+            hands = {}
+            for key in Direction.ALL:
+                known = self.known_cards[key]
+                k = 13 - len(known)
+                unknown = set(cardlist[n:n+k])
+                hands[key] = Hand(known | unknown)
+                n += k
 
-        assert n == len(cardlist), (n, len(cardlist))
+            assert n == len(cardlist), (n, len(cardlist))
 
-        for d, acc in self.acceptors.items():
-            if not acc(hands[d]):
-                return None
+            for d, acc in self.acceptors.items():
+                if not acc(hands[d]):
+                    return None
 
-        deal = Deal(hands['W'],hands['N'],hands['E'],hands['S'])
+            deal = Deal(hands['W'],hands['N'],hands['E'],hands['S'])
+        else:
+            deal = self.dealset.sample()
+
         if self.accept is not None:
             if not self.accept(deal):
                 return None

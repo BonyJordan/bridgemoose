@@ -96,8 +96,8 @@ class HandSetMetric:
         return HandSet(out)
 
 class SimpleHandMetric(HandSetMetric):
-    cards = [suit+rank for rank in "AKQJ" for suit in "SHDC"] +\
-        [suit+rank for suit in "SHDC" for rank in "T98765432"]
+    cards = [Card(suit, rank) for rank in "AKQJ" for suit in "SHDC"] +\
+        [Card(suit, rank) for suit in "SHDC" for rank in "T98765432"]
     card_index = {c:i for i, c in enumerate(cards)}
 
     def __init__(self, scores):
@@ -131,7 +131,7 @@ class QuickTricksMetric(HandSetMetric):
 
     @staticmethod
     def suit_values(suit):
-        ranks = [var for var, card in enumerate(SimpleHandMetric.cards) if card[0] == suit]
+        ranks = [var for var, card in enumerate(SimpleHandMetric.cards) if card.suit == suit]
         have_x = BDD.false()
         for var in reversed(ranks[3:]):
             have_x = BDD(var).thenelse(BDD.true(), have_x)
@@ -162,7 +162,6 @@ class QuickTricksMetric(HandSetMetric):
         assert red == BDD.true(), (red.bdd_graph_str())
 
         return values
-
 
 class DealSet:
     def __init__(self, d):
@@ -357,30 +356,45 @@ class ShapeMaker:
 
         return out
 
+class OrderedLengthMetric(HandSetMetric):
+    def __init__(self, place):
+        values = dict()
+        for pattern in [tuple_to_pattern(t, 13) for t in itertools.combinations(range(16),3)]:
+            x = sorted(pattern)[place]
+            pat_bdd = functools.reduce(HandSet.__and__, [x == y for x, y in zip([HandMakers.NUM_SP, HandMakers.NUM_HE, HandMakers.NUM_DI, HandMakers.NUM_CL], pattern)])
+            if x in values:
+                values[x] |= pat_bdd
+            else:
+                values[x] = pat_bdd
+
+        values = {key: val.bdd for key, val in values.items()}
+
+        super(OrderedLengthMetric, self).__init__(values)
+
 
 
 class HandMakers:
-    NUM_CL = SimpleHandMetric({"C"+r: 1 for r in "AKQJT98765432"})
-    NUM_DI = SimpleHandMetric({"D"+r: 1 for r in "AKQJT98765432"})
-    NUM_HE = SimpleHandMetric({"H"+r: 1 for r in "AKQJT98765432"})
-    NUM_SP = SimpleHandMetric({"S"+r: 1 for r in "AKQJT98765432"})
-    HCP = SimpleHandMetric({s+r: v for s in "SHDC" for r, v in [('A',4), ('K',3), ('Q',2), ('J',1)]})
+    NUM_CL = SimpleHandMetric({Card("C",r): 1 for r in "AKQJT98765432"})
+    NUM_DI = SimpleHandMetric({Card("D",r): 1 for r in "AKQJT98765432"})
+    NUM_HE = SimpleHandMetric({Card("H",r): 1 for r in "AKQJT98765432"})
+    NUM_SP = SimpleHandMetric({Card("S",r): 1 for r in "AKQJT98765432"})
+    HCP = SimpleHandMetric({Card(s,r): v for s in "SHDC" for r, v in [('A',4), ('K',3), ('Q',2), ('J',1)]})
     CLUBS = NUM_CL
     DIAMONDS = NUM_DI
     HEARTS = NUM_HE
     SPADES = NUM_SP
-    ACES = SimpleHandMetric({s+"A": 1 for s in "SHDC"})
-    KINGS = SimpleHandMetric({s+"K": 1 for s in "SHDC"})
-    QUEENS = SimpleHandMetric({s+"Q": 1 for s in "SHDC"})
-    JACKS = SimpleHandMetric({s+"J": 1 for s in "SHDC"})
-    TENS = SimpleHandMetric({s+"T": 1 for s in "SHDC"})
-    TOP2 = SimpleHandMetric({s+r: 1 for s in "SHDC" for r in "AK"})
-    TOP3 = SimpleHandMetric({s+r: 1 for s in "SHDC" for r in "AKQ"})
-    TOP4 = SimpleHandMetric({s+r: 1 for s in "SHDC" for r in "AKQJ"})
-    TOP5 = SimpleHandMetric({s+r: 1 for s in "SHDC" for r in "AKQJT"})
-    CONTROLS = SimpleHandMetric({s+r: v for s in "SHDC" for r, v in [('A',2), ('K',1)]})
+    ACES = SimpleHandMetric({Card(s,"A"): 1 for s in "SHDC"})
+    KINGS = SimpleHandMetric({Card(s,"K"): 1 for s in "SHDC"})
+    QUEENS = SimpleHandMetric({Card(s,"Q"): 1 for s in "SHDC"})
+    JACKS = SimpleHandMetric({Card(s,"J"): 1 for s in "SHDC"})
+    TENS = SimpleHandMetric({Card(s,"T"): 1 for s in "SHDC"})
+    TOP2 = SimpleHandMetric({Card(s,r): 1 for s in "SHDC" for r in "AK"})
+    TOP3 = SimpleHandMetric({Card(s,r): 1 for s in "SHDC" for r in "AKQ"})
+    TOP4 = SimpleHandMetric({Card(s,r): 1 for s in "SHDC" for r in "AKQJ"})
+    TOP5 = SimpleHandMetric({Card(s,r): 1 for s in "SHDC" for r in "AKQJT"})
+    CONTROLS = SimpleHandMetric({Card(s,r): v for s in "SHDC" for r, v in [('A',2), ('K',1)]})
     def CARD(card):
-        index = SimpleHandMetric.card_index[card]
+        index = SimpleHandMetric.card_index[Card(card)]
         return HandSet(BDD(index))
 
     QUICKx2 = QuickTricksMetric()
@@ -395,7 +409,7 @@ class HandMakers:
             key = {k:i for i, k in enumerate("AKQJT98765432x")}
             spec = sorted(spec, key=lambda x: key[x])
 
-            cards = [(i, card) for i, card in enumerate(HandSet.cards) if card[0] == suit]
+            cards = [(i, card) for i, card in enumerate(HandSet.cards) if card.suit == suit]
             assert len(cards) == 13, (len(cards), cards)
 
             states = [BDD.false()]*len(spec) + [BDD.true()]
@@ -449,8 +463,27 @@ class HandSet:
         return HandSet(self.bdd.thenelse(t.bdd, e.bdd))
 
     def contains(self, hand):
-        raise NotImplemented
+        if isinstance(hand, str):
+            hand = Hand(hand)
+        elif not isinstance(hand, Hand):
+            raise TypeError("Only Hand type handled")
 
+        cur = self.bdd
+        for i, card in enumerate(SimpleHandMetric.cards):
+            if not cur:
+                return False
+            var, pos, neg = cur.split()
+            assert var == i
+            if card in hand.cards:
+                cur = pos
+            else:
+                cur = neg
+        return bool(cur)
+
+HandMakers.ANY = HandSet(BDD.true())
+HandMakers.LONGEST = OrderedLengthMetric(3)
+HandMakers.LONGEST_2ND = OrderedLengthMetric(2)
+HandMakers.SHORTEST = OrderedLengthMetric(0)
 
 if __name__ == "__main__":
     s5 = (HandMakers.NUM_SP >= 5)
