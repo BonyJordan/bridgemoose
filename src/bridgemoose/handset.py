@@ -89,8 +89,8 @@ class HandSetMetric:
         if key in self.cache:
             return HandSet(self.cache[key])
 
-        a = self.less_than(n-1)
-        b = self.values.get(n-1, HandSet(BDD.false()))
+        a = self.less_than(n-1).bdd
+        b = self.values.get(n-1, BDD.false())
         out = a | b
         self.cache[key] = out
         return HandSet(out)

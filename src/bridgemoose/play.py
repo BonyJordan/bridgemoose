@@ -125,6 +125,7 @@ class PlayView:
         return out
 
     def set_hand(self, direction, hand):
+        direction = Direction(direction)
         if not self.hands_left[direction.i] is None:
             raise ValueError("Hand %s already set", direction)
         if self.hands_played[direction.i].cards:
