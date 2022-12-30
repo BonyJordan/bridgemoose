@@ -144,6 +144,17 @@ class PlayView:
         return PlayView.history_to_player(self.declarer, self.history,
             self.strain)
 
+    def legal_plays(self):
+        my_hand = self.hands_left[self.next_play.i]
+
+        if len(self.current_trick) > 0:
+            led_suit = self.current_trick[0].suit
+            same_suit = my_hand.by_suit[led_suit]
+            if same_suit:
+                return list(same_suit)
+
+        return list(my_hand.cards)
+
     def play_card(self, card):
         if isinstance(card, str):
             card = Card(card)

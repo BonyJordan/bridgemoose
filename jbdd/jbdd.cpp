@@ -387,12 +387,12 @@ static PyObject* BDD_true(PyObject* self, PyObject* args);
 static PyObject* BDD_thenelse(PyObject* self, PyObject* args);
 
 static PyNumberMethods BDDNumberMethods = {
-    .nb_invert = BDD_invert,
+    .nb_subtract = BDD_sub,
     .nb_bool = BDD_bool,
+    .nb_invert = BDD_invert,
     .nb_and = BDD_and,
     .nb_xor = BDD_xor,
     .nb_or = BDD_or,
-    .nb_subtract = BDD_sub,
 };
 
 static PyMethodDef BDDRegularMethods[] = {
@@ -409,16 +409,16 @@ static PyMethodDef BDDRegularMethods[] = {
 static PyTypeObject BDDType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     .tp_name = "bridgemoose.jbdd.BDD",
-    .tp_doc = PyDoc_STR("Binary Decision Diagram"),
     .tp_basicsize = sizeof(BDDObject),
     .tp_itemsize = 0,
-    .tp_flags = Py_TPFLAGS_DEFAULT,
-    .tp_new = BDD_new,
     .tp_as_number = &BDDNumberMethods,
-    .tp_init = (initproc) BDD_init,
     .tp_hash = (hashfunc) BDD_hash,
+    .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_doc = PyDoc_STR("Binary Decision Diagram"),
     .tp_richcompare = (richcmpfunc) BDD_richcompare,
     .tp_methods = BDDRegularMethods,
+    .tp_init = (initproc) BDD_init,
+    .tp_new = BDD_new,
 };
 
 static PyObject*
