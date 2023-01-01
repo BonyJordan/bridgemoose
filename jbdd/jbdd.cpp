@@ -3,6 +3,7 @@
 #include <inttypes.h>
 #include <vector>
 #include <map>
+#include "j128.h"
 
 #ifndef Py_IS_TYPE
 #define Py_IS_TYPE(obj, type)	(Py_TYPE((obj)) == (type))
@@ -48,8 +49,8 @@ struct BDD_TRIPLE {
 
 struct BDD_INFO {
     BDD_TRIPLE	trip;
-    size_t	pcount;
-    size_t	ncount;
+    j128_t	pcount;
+    j128_t	ncount;
 
     BDD_INFO(const BDD_TRIPLE& t) : trip(t),pcount(0),ncount(0) {}
     BDD_INFO(const BDD_INFO& i) :
@@ -290,7 +291,7 @@ BDD_hash(BDDObject* self)
 }
 
 
-static size_t
+static j128_t
 bddref_pcount(bddref_t index)
 {
     if (index == bdd_true) {
@@ -311,16 +312,20 @@ BDD_pcount(PyObject* self, PyObject* args)
 {
     (void)args;
     BDDObject* bo = (BDDObject*) self;
-    size_t count = bddref_pcount(bo->index);
-    return PyLong_FromSize_t(count);
+    j128_t count = bddref_pcount(bo->index);
+    return count.to_pylong();
 }
 
 static PyObject*
 BDD_get_pindex(PyObject* self, PyObject* args)
 {
     BDDObject* bo = (BDDObject*)self;
-    size_t index = PyLong_AsSize_t(args);
-    if (index == (size_t)-1)
+    PyLongObject* obj = NULL;
+    if (!PyArg_ParseTuple(args, "O!", &PyLong_Type, &obj))
+	return NULL;
+
+    j128_t index;
+    if (index.from_pylong(obj) < 0)
 	return NULL;
 
     PyObject* out_list = PyList_New(0);
@@ -329,7 +334,7 @@ BDD_get_pindex(PyObject* self, PyObject* args)
 
     while (true)
     {
-	size_t max_index = bddref_pcount(cur);
+	j128_t max_index = bddref_pcount(cur);
 	if (index >= max_index || index < 0) {
 	    Py_DECREF(out_list);
 	    return PyErr_Format(PyExc_IndexError, "Index out of range");
@@ -340,7 +345,8 @@ BDD_get_pindex(PyObject* self, PyObject* args)
 
 	if (cur > 0) {
 	    const BDD_INFO& bi = iv[cur-2];
-	    size_t ac = bddref_pcount(bi.trip.avec);
+
+	    j128_t ac = bddref_pcount(bi.trip.avec);
 	    if (index < ac) {
 		if (PyList_Append(out_list, Py_BuildValue("i", bi.trip.vnum)) < 0) {
 		    Py_DECREF(out_list);
@@ -355,7 +361,7 @@ BDD_get_pindex(PyObject* self, PyObject* args)
 	    }
 	} else {
 	    const BDD_INFO& bi = iv[-cur-2];
-	    size_t ac = bddref_pcount(-bi.trip.avec);
+	    j128_t ac = bddref_pcount(-bi.trip.avec);
 	    if (index < ac) {
 		if (PyList_Append(out_list, Py_BuildValue("i", bi.trip.vnum)) < 0) {
 		    Py_DECREF(out_list);
@@ -397,7 +403,7 @@ static PyNumberMethods BDDNumberMethods = {
 
 static PyMethodDef BDDRegularMethods[] = {
     { "pcount", BDD_pcount, METH_NOARGS, "Return the number of satisfying variable sets" },
-    { "get_pindex", BDD_get_pindex, METH_O, "Return a specific satisfying variable set" },
+    { "get_pindex", BDD_get_pindex, METH_VARARGS, "Return a specific satisfying variable set" },
     { "split", BDD_split, METH_NOARGS, "Return either a bool for a constant, or a tuple of (vnum, pos_cofactor, neg_cofactor)" },
     { "false", BDD_false, METH_NOARGS | METH_STATIC, "Return the constant False BDD" },
     { "true", BDD_true, METH_NOARGS | METH_STATIC, "Return the constant True BDD" },
@@ -568,12 +574,33 @@ BDD_thenelse(PyObject* self, PyObject* args)
     return bddref_to_pyobject(bdd_ite(i, t, e));
 }
 
+static PyObject*
+jbdd_test(PyObject* self, PyObject* args)
+{
+    PyLongObject* obj = NULL;
+    if (!PyArg_ParseTuple(args, "O!", &PyLong_Type, &obj))
+	return NULL;
+
+    j128_t foo;
+    if (foo.from_pylong(obj) < 0)
+	return NULL;
+
+    PyObject* out = foo.to_pylong();
+    return out;
+}
+
+
+static PyMethodDef jbdd_methods[] = {
+    {"test", jbdd_test, METH_VARARGS, "Generic test method"},
+    {NULL, NULL, 0, NULL}
+};
 
 static PyModuleDef jbdd_module = {
     PyModuleDef_HEAD_INIT,
     .m_name = "bridgemoose.jbdd",
     .m_doc = "Module implementing Binary Decision Diagrams",
     .m_size = -1,
+    .m_methods = jbdd_methods,
 };
 
 PyMODINIT_FUNC

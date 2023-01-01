@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 module_jbdd = setuptools.Extension('bridgemoose.jbdd',
-    sources=["jbdd/jbdd.cpp"])
+    sources=["jbdd/jbdd.cpp", "jbdd/j128.cpp"])
 
 module_dds = setuptools.Extension('bridgemoose.dds',
     # define_macros = [('DDS_THREADS_GCD', None), ('DDS_THREADS_STL', None)],
