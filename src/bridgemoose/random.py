@@ -74,7 +74,7 @@ class RestrictedDealer:
             elif isinstance(spec, str):
                 handsets[d] = from_cards(Hand(spec).cards)
             elif isinstance(spec, (Hand, PartialHand)):
-                handsets[d] = from_cards(spec)
+                handsets[d] = from_cards(spec.cards)
             elif callable(spec):
                 raise TypeError("This shouldn't happen")
             elif isinstance(spec, HandSet):

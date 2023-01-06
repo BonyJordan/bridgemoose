@@ -266,9 +266,47 @@ def tuple_to_pattern(tupe, n):
     assert min(out) >= 0, (tupe, n)
     return out
 
+class IncrTuple(tuple):
+    def __new__(cls, lst):
+        return super(IncrTuple, cls).__new__(cls, tuple(lst))
+
+    def incr(self, index):
+        l = list(self)
+        l[index] += 1
+        return IncrTuple(l)
+
 class ShapeMaker:
     THE_RE = re.compile(r'(?P<SKIP>\s+)|(?P<ANY>any)|(?P<OP>[-+])|(?P<PAT>[0-9x]{4})|(?P<ERROR>.)')
     ALL = [tuple_to_pattern(t, 13) for t in itertools.combinations(range(16),3)]
+    BDDS = None
+
+    @staticmethod
+    def get_pattern_bdds():
+        SID = {'S':0, 'H':1, 'D':2, 'C': 3}
+        if ShapeMaker.BDDS is not None:
+            return ShapeMaker.BDDS
+
+        so_far = {IncrTuple([0,0,0,0]): BDD.true()}
+        for i, card in reversed(list(enumerate(SimpleHandMetric.cards))):
+            sid = SID[card.suit]
+            var = BDD(i)
+            after = {pat: (bdd & ~var) for pat, bdd in so_far.items()}
+            for pat, bdd in so_far.items():
+                ipat = pat.incr(sid)
+                if sum(ipat) > 13:
+                    continue
+
+                ibdd = (bdd & var)
+                if ipat in after:
+                    after[ipat] |= ibdd
+                else:
+                    after[ipat] = ibdd
+
+            so_far = after
+
+        ShapeMaker.BDDS = {pat: bdd for pat, bdd in so_far.items() if sum(pat) == 13}
+        return ShapeMaker.BDDS
+
 
     @staticmethod
     def matching_tuples(spec):
@@ -359,19 +397,37 @@ class ShapeMaker:
 class OrderedLengthMetric(HandSetMetric):
     def __init__(self, place):
         values = dict()
-        for pattern in [tuple_to_pattern(t, 13) for t in itertools.combinations(range(16),3)]:
-            x = sorted(pattern)[place]
-            pat_bdd = functools.reduce(HandSet.__and__, [x == y for x, y in zip([HandMakers.NUM_SP, HandMakers.NUM_HE, HandMakers.NUM_DI, HandMakers.NUM_CL], pattern)])
+        for pat, bdd in ShapeMaker.get_pattern_bdds().items():
+            x = sorted(pat)[place]
             if x in values:
-                values[x] |= pat_bdd
+                values[x] |= bdd
             else:
-                values[x] = pat_bdd
-
-        values = {key: val.bdd for key, val in values.items()}
+                values[x] = bdd
 
         super(OrderedLengthMetric, self).__init__(values)
 
+class HandMakersMeta(type):
+    _O3 = None
+    _O2 = None
+    _O0 = None
 
+    @property
+    def LONGEST(cls):
+        if cls._O3 is None:
+            cls._O3 = OrderedLengthMetric(3)
+        return cls._O3
+
+    @property
+    def LONGEST_2ND(cls):
+        if cls._O2 is None:
+            cls._O2 = OrderedLengthMetric(2)
+        return cls._O2
+
+    @property
+    def SHORTEST(cls):
+        if cls._O0 is None:
+            cls._O0 = OrderedLengthMetric(0)
+        return cls._O0
 
 class HandMakers:
     NUM_CL = SimpleHandMetric({Card("C",r): 1 for r in "AKQJT98765432"})
@@ -481,9 +537,6 @@ class HandSet:
         return bool(cur)
 
 HandMakers.ANY = HandSet(BDD.true())
-HandMakers.LONGEST = OrderedLengthMetric(3)
-HandMakers.LONGEST_2ND = OrderedLengthMetric(2)
-HandMakers.SHORTEST = OrderedLengthMetric(0)
 
 if __name__ == "__main__":
     s5 = (HandMakers.NUM_SP >= 5)
