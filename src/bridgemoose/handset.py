@@ -387,9 +387,10 @@ class ShapeMaker:
                 raise ValueError(f"Unexpected character `{mo.group()}' at pos {mo.start()+1}")
         state.do_end()
 
+        m = hand_makers()
         out = HandSet(BDD.false())
         for pat in so_far:
-            pat_bdd = functools.reduce(HandSet.__and__, [x == y for x, y in zip([HandMakers.NUM_SP, HandMakers.NUM_HE, HandMakers.NUM_DI, HandMakers.NUM_CL], pat)])
+            pat_bdd = functools.reduce(HandSet.__and__, [x == y for x, y in zip([m.NUM_SP, m.NUM_HE, m.NUM_DI, m.NUM_CL], pat)])
             out |= pat_bdd
 
         return out
@@ -406,58 +407,49 @@ class OrderedLengthMetric(HandSetMetric):
 
         super(OrderedLengthMetric, self).__init__(values)
 
-class HandMakersMeta(type):
-    _O3 = None
-    _O2 = None
-    _O0 = None
+class lazy_const:
+    def __init__(self, factory):
+        self.factory = factory
+        self.made = False
 
-    @property
-    def LONGEST(cls):
-        if cls._O3 is None:
-            cls._O3 = OrderedLengthMetric(3)
-        return cls._O3
+    def __get__(self, instance, owner):
+        if not self.made:
+            self.value = self.factory()
+            self.made = True
+        return self.value
 
-    @property
-    def LONGEST_2ND(cls):
-        if cls._O2 is None:
-            cls._O2 = OrderedLengthMetric(2)
-        return cls._O2
-
-    @property
-    def SHORTEST(cls):
-        if cls._O0 is None:
-            cls._O0 = OrderedLengthMetric(0)
-        return cls._O0
-
-class HandMakers:
-    NUM_CL = SimpleHandMetric({Card("C",r): 1 for r in "AKQJT98765432"})
-    NUM_DI = SimpleHandMetric({Card("D",r): 1 for r in "AKQJT98765432"})
-    NUM_HE = SimpleHandMetric({Card("H",r): 1 for r in "AKQJT98765432"})
-    NUM_SP = SimpleHandMetric({Card("S",r): 1 for r in "AKQJT98765432"})
-    HCP = SimpleHandMetric({Card(s,r): v for s in "SHDC" for r, v in [('A',4), ('K',3), ('Q',2), ('J',1)]})
+class hand_makers:
+    NUM_CL = lazy_const(lambda: SimpleHandMetric({Card("C",r): 1 for r in "AKQJT98765432"}))
+    NUM_DI = lazy_const(lambda: SimpleHandMetric({Card("D",r): 1 for r in "AKQJT98765432"}))
+    NUM_HE = lazy_const(lambda: SimpleHandMetric({Card("H",r): 1 for r in "AKQJT98765432"}))
+    NUM_SP = lazy_const(lambda: SimpleHandMetric({Card("S",r): 1 for r in "AKQJT98765432"}))
+    HCP = lazy_const(lambda: SimpleHandMetric({Card(s,r): v for s in "SHDC" for r, v in [('A',4), ('K',3), ('Q',2), ('J',1)]}))
     CLUBS = NUM_CL
     DIAMONDS = NUM_DI
     HEARTS = NUM_HE
     SPADES = NUM_SP
-    ACES = SimpleHandMetric({Card(s,"A"): 1 for s in "SHDC"})
-    KINGS = SimpleHandMetric({Card(s,"K"): 1 for s in "SHDC"})
-    QUEENS = SimpleHandMetric({Card(s,"Q"): 1 for s in "SHDC"})
-    JACKS = SimpleHandMetric({Card(s,"J"): 1 for s in "SHDC"})
-    TENS = SimpleHandMetric({Card(s,"T"): 1 for s in "SHDC"})
-    TOP2 = SimpleHandMetric({Card(s,r): 1 for s in "SHDC" for r in "AK"})
-    TOP3 = SimpleHandMetric({Card(s,r): 1 for s in "SHDC" for r in "AKQ"})
-    TOP4 = SimpleHandMetric({Card(s,r): 1 for s in "SHDC" for r in "AKQJ"})
-    TOP5 = SimpleHandMetric({Card(s,r): 1 for s in "SHDC" for r in "AKQJT"})
-    CONTROLS = SimpleHandMetric({Card(s,r): v for s in "SHDC" for r, v in [('A',2), ('K',1)]})
+    ACES = lazy_const(lambda: SimpleHandMetric({Card(s,"A"): 1 for s in "SHDC"}))
+    KINGS = lazy_const(lambda: SimpleHandMetric({Card(s,"K"): 1 for s in "SHDC"}))
+    QUEENS = lazy_const(lambda: SimpleHandMetric({Card(s,"Q"): 1 for s in "SHDC"}))
+    JACKS = lazy_const(lambda: SimpleHandMetric({Card(s,"J"): 1 for s in "SHDC"}))
+    TENS = lazy_const(lambda: SimpleHandMetric({Card(s,"T"): 1 for s in "SHDC"}))
+    TOP2 = lazy_const(lambda: SimpleHandMetric({Card(s,r): 1 for s in "SHDC" for r in "AK"}))
+    TOP3 = lazy_const(lambda: SimpleHandMetric({Card(s,r): 1 for s in "SHDC" for r in "AKQ"}))
+    TOP4 = lazy_const(lambda: SimpleHandMetric({Card(s,r): 1 for s in "SHDC" for r in "AKQJ"}))
+    TOP5 = lazy_const(lambda: SimpleHandMetric({Card(s,r): 1 for s in "SHDC" for r in "AKQJT"}))
+    CONTROLS = lazy_const(lambda: SimpleHandMetric({Card(s,r): v for s in "SHDC" for r, v in [('A',2), ('K',1)]}))
+    @staticmethod
     def CARD(card):
         index = SimpleHandMetric.card_index[Card(card)]
         return HandSet(BDD(index))
 
-    QUICKx2 = QuickTricksMetric()
+    QUICKx2 = lazy_const(lambda: QuickTricksMetric())
 
+    @staticmethod
     def SHAPE(spec):
         return ShapeMaker.get_handset(spec)
 
+    @staticmethod
     def AT_LEAST(suit, spec):
         def one(suit, spec):
             if not isinstance(spec, str):
@@ -482,6 +474,10 @@ class HandMakers:
             return one(suit, spec)
         else:
             return functools.reduce(HandSet.__or__, [one(suit, x) for x in spec])
+    LONGEST = lazy_const(lambda: OrderedLengthMetric(3))
+    LONGEST_2ND = lazy_const(lambda: OrderedLengthMetric(2))
+    SHORTEST = lazy_const(lambda: OrderedLengthMetric(0))
+    ANY = lazy_const(lambda: HandSet(BDD.true()))
 
     NORTH = DealSetConverter("N")
     SOUTH = DealSetConverter("S")
@@ -536,9 +532,10 @@ class HandSet:
                 cur = neg
         return bool(cur)
 
-HandMakers.ANY = HandSet(BDD.true())
 
 if __name__ == "__main__":
+    HandMakers = hand_makers()
+
     s5 = (HandMakers.NUM_SP >= 5)
     h12 = (HandMakers.HCP >= 12)
     a = s5 & h12 & HandMakers.HAND
@@ -572,4 +569,4 @@ if __name__ == "__main__":
             print("------")
             print(ds.sample().square_string())
 
-__all__ = ["HandMakers"]
+__all__ = ["hand_makers"]

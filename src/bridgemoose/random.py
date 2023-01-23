@@ -2,7 +2,7 @@ import random
 from .deal import Card, Deal, Hand
 from .direction import Direction
 from .play import PartialHand
-from .handset import HandSet, HandMakers
+from .handset import HandSet, hand_makers
 
 def parse_card_set(s):
     out = set()
@@ -59,7 +59,7 @@ class RestrictedDealer:
                 self._process_card_set(d, set(spec))
 
     def init_with_handsets(self, args):
-        m = HandMakers
+        m = hand_makers()
         handsets = {}
 
         def from_cards(cards):
