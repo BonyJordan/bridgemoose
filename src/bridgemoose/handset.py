@@ -457,7 +457,7 @@ class hand_makers:
             key = {k:i for i, k in enumerate("AKQJT98765432x")}
             spec = sorted(spec, key=lambda x: key[x])
 
-            cards = [(i, card) for i, card in enumerate(HandSet.cards) if card.suit == suit]
+            cards = [(i, card) for i, card in enumerate(SimpleHandMetric.cards) if card.suit == suit]
             assert len(cards) == 13, (len(cards), cards)
 
             states = [BDD.false()]*len(spec) + [BDD.true()]
