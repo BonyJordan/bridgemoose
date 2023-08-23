@@ -212,6 +212,10 @@ list of calls.
             out.add_call(call)
         return out
 
+    def turn(self):
+        """ Return which direction is currently to make a call """
+        return self.next_dir
+
     def done(self):
         if self.last_bid is None and self.num_passes == 4:
             return True
