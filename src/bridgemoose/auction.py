@@ -302,12 +302,13 @@ list of calls.
         self.last_bid, self.last_bid_dir, self.num_doubles, self.num_passes = self.history.pop()
 
         if off in ["P","X","XX"]:
-            return
+            return self
         bid = Bid(off)
         key = (self.next_dir.side_index(), bid.strain)
         fdir, fbid = self.first_strain_calls[key]
         if bid == fbid:
             del self.first_strain_calls[key]
+        return self
 
     def legal_calls(self):
         """ Return a list of all legal calls """
