@@ -18,61 +18,61 @@ class DDS_LOADER
     int _solutions;
 
   private:
-    void solve_some()
+void solve_some()
+{
+    if (_bo.noOfBoards == 0) {
+	_solved.noOfBoards = 0;
+	return;
+    }
+
+    int r = SolveAllBoardsBin(&_bo, &_solved);
+    if (r < 0) {
+	char line[80];
+	ErrorMessage(r, line);
+	fprintf(stderr, "DDS_LOADER::solve_some(): DDS(%d): %s\n", r, line);
+	exit(-1);
+    }
+    assert(_solved.noOfBoards == _bo.noOfBoards);
+}
+
+
+void load_some()
+{
+    int k = 0;
+    while (true)
     {
-	if (_bo.noOfBoards == 0) {
-	    _solved.noOfBoards = 0;
+	if (!_itr.more() || k == MAXNOOFBOARDS) {
+	    _bo.noOfBoards = k;
+	    solve_some();
 	    return;
 	}
 
-	int r = SolveAllBoardsBin(&_bo, &_solved);
-	if (r < 0) {
-	    char line[80];
-	    ErrorMessage(r, line);
-	    fprintf(stderr, "DDS_LOADER::solve_some(): DDS(%d): %s\n", r, line);
-	    exit(-1);
+	_bo.deals[k].trump = _solver.trump();
+	for (int j=0 ; j<3 ; j++) {
+	    CARD tc = _state.trick_card(j);
+	    _bo.deals[k].currentTrickSuit[j] = tc.suit;
+	    _bo.deals[k].currentTrickRank[j] = tc.rank;
 	}
-	assert(_solved.noOfBoards == _bo.noOfBoards);
+	int did = _itr.current();
+	_did_map[k] = did;
+	set_deal_cards(_solver.north() & ~_state.played(), J_NORTH,
+	    _bo.deals[k]);
+	set_deal_cards(_solver.south() & ~_state.played(), J_SOUTH,
+	    _bo.deals[k]);
+	set_deal_cards(_solver.west(did) & ~_state.played(), J_WEST,
+	    _bo.deals[k]);
+	set_deal_cards(_solver.east(did) & ~_state.played(), J_EAST,
+	    _bo.deals[k]);
+
+	_bo.deals[k].first = _state.trick_leader();
+	_bo.mode[k] = _mode;
+	_bo.solutions[k] = _solutions;
+	_bo.target[k] = _solver.target() - _state.ns_tricks();
+
+	k++;
+	_itr.next();
     }
-
-
-    void load_some()
-    {
-	int k = 0;
-	while (true)
-	{
-	    if (!_itr.more() || k == MAXNOOFBOARDS) {
-		_bo.noOfBoards = k;
-		solve_some();
-		return;
-	    }
-
-	    _bo.deals[k].trump = _solver.trump();
-	    for (int j=0 ; j<3 ; j++) {
-		CARD tc = _state.trick_card(j);
-		_bo.deals[k].currentTrickSuit[j] = tc.suit;
-		_bo.deals[k].currentTrickRank[j] = tc.rank;
-	    }
-	    int did = _itr.current();
-	    _did_map[k] = did;
-	    set_deal_cards(_solver.north() & ~_state.played(), J_NORTH,
-		_bo.deals[k]);
-	    set_deal_cards(_solver.south() & ~_state.played(), J_SOUTH,
-		_bo.deals[k]);
-	    set_deal_cards(_solver.west(did) & ~_state.played(), J_WEST,
-		_bo.deals[k]);
-	    set_deal_cards(_solver.east(did) & ~_state.played(), J_EAST,
-		_bo.deals[k]);
-
-	    _bo.deals[k].first = _state.trick_leader();
-	    _bo.mode[k] = _mode;
-	    _bo.solutions[k] = _solutions;
-	    _bo.target[k] = _solver.target() - _state.ns_tricks();
-
-	    k++;
-	    _itr.next();
-	}
-    }
+}
 
   public:
     DDS_LOADER(const SOLVER& solver, const STATE& state, const INTSET& dids,
@@ -82,7 +82,9 @@ class DDS_LOADER
     {
 	load_some();
     }
-    ~DDS_LOADER();
+    ~DDS_LOADER()
+    {
+    }
 
     int chunk_size() const { return _solved.noOfBoards; }
     const struct futureTricks& chunk_solution(int i) const

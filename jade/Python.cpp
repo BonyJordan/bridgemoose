@@ -7,7 +7,7 @@
 PyObject* _hand_type = NULL;
 PyObject* _partial_hand_type = NULL;
 
-const char* SUITS = "SHDC";
+const char* SUITS = "CDHS";
 const char* RANKS = "23456789TJQKA";
 
 static
@@ -18,6 +18,16 @@ int char_to_rank(char c)
 	    return i;
     return -1;
 }
+
+static
+int char_to_suit(char c)
+{
+    for (int i=0 ; i<4 ; i++)
+	if (SUITS[i] == c)
+	    return i;
+    return -1;
+}
+
 
 static
 int char_to_trump(char t)
@@ -108,20 +118,22 @@ bool hand_from_pyo(PyObject* pyo, hand64_t& hand)
 typedef struct {
     PyObject_HEAD
     SOLVER* solver;
-} SolverObject;
+} Solver_Object;
+
 
 static PyObject*
 Solver_new(PyTypeObject* type, PyObject* args, PyObject* kwds)
 {
-    SolverObject* self = (SolverObject*) type->tp_alloc(type, 0);
+    Solver_Object* self = (Solver_Object*) type->tp_alloc(type, 0);
     if (self != NULL) {
 	self->solver = NULL;
     }
     return (PyObject*) self;
 }
 
+
 static int
-Solver_init(SolverObject* self, PyObject* args, PyObject* kwds)
+Solver_init(Solver_Object* self, PyObject* args, PyObject* kwds)
 {
     const char* keywords[] = {
 	"north",
@@ -226,18 +238,86 @@ Solver_init(SolverObject* self, PyObject* args, PyObject* kwds)
     }
 
     self->solver = new SOLVER(north, south, trump, target, wests, easts);
-    printf("Created with %zu pairs\n", wests.size());
     return 0;
 }
 
 
-static PyTypeObject SolverType = {
+static PyObject*
+Solver_eval(PyObject* self, PyObject* args)
+{
+    Solver_Object* so = (Solver_Object*)self;
+    PyObject* play_list = NULL;
+    if (!PyArg_ParseTuple(args, "O", &play_list))
+	return NULL;
+
+    std::vector<CARD> plays;
+    PyObject* iter = PyObject_GetIter(play_list);
+    if (iter == NULL)
+	return NULL;
+
+    for (int i=0 ; ; i++)
+    {
+	PyObject* py_card = PyIter_Next(iter);
+	if (py_card == NULL)
+	    break;
+
+	PyObject* py_str = PyObject_Str(py_card);
+	if (py_str == NULL) {
+	    Py_DECREF(iter);
+	    return NULL;
+	}
+	const char* card_str = PyUnicode_AsUTF8(py_str);
+	if (card_str == NULL) {
+	    Py_DECREF(py_str);
+	    Py_DECREF(iter);
+	    return NULL;
+	}
+
+	if (!card_str[0] || !card_str[1]) {
+	    Py_DECREF(py_str);
+	    Py_DECREF(iter);
+	    return PyErr_Format(PyExc_ValueError, "Malformed Card index %d", i);
+	}
+	    
+	int suit_i = char_to_suit(card_str[0]);
+	if (suit_i < 0) {
+	    Py_DECREF(py_str);
+	    Py_DECREF(iter);
+	    return PyErr_Format(PyExc_ValueError, "Bad suit '%c' at index %d",
+		card_str[0], i);
+	}
+	int rank_i = char_to_rank(card_str[1]);
+	if (rank_i < 0) {
+	    Py_DECREF(py_str);
+	    Py_DECREF(iter);
+	    return PyErr_Format(PyExc_ValueError, "Bad rank '%c' at index %d",
+		card_str[1], i);
+	}
+
+	plays.push_back(CARD(suit_i, 2+rank_i));
+	Py_DECREF(py_str);
+    }
+    Py_DECREF(iter);
+
+    BDT out = so->solver->eval(plays);
+    return Py_BuildValue("s", "Are you happy?");
+}
+
+
+static PyMethodDef Solver_RegularMethods[] = {
+    { "eval", Solver_eval, METH_VARARGS, "Return a JBDD encoding the existence of play lines which cover various subsets of east/west possibilities" },
+    { NULL, NULL, 0,  NULL },
+};
+
+
+static PyTypeObject Solver_Type = {
     PyVarObject_HEAD_INIT(NULL, 0)
     .tp_name = "bridgemoose.jade.Solver",
-    .tp_basicsize = sizeof(SolverObject),
+    .tp_basicsize = sizeof(Solver_Object),
     .tp_itemsize = 0,
     .tp_flags = Py_TPFLAGS_DEFAULT,
     .tp_doc = PyDoc_STR("Jordan's Amazing Declarer Evaluater - Solver Object"),
+    .tp_methods = Solver_RegularMethods,
     .tp_init = (initproc) Solver_init,
     .tp_new = Solver_new,
 };
@@ -265,16 +345,16 @@ PyInit_jade(void)
     /////
 
     PyObject* mod;
-    if (PyType_Ready(&SolverType) < 0)
+    if (PyType_Ready(&Solver_Type) < 0)
 	return NULL;
 
     mod = PyModule_Create(&jade_module);
     if (mod == NULL)
 	return NULL;
 
-    Py_INCREF(&SolverType);
-    if (PyModule_AddObject(mod, "Solver", (PyObject*)&SolverType) < 0) {
-	Py_DECREF(&SolverType);
+    Py_INCREF(&Solver_Type);
+    if (PyModule_AddObject(mod, "Solver", (PyObject*)&Solver_Type) < 0) {
+	Py_DECREF(&Solver_Type);
 	Py_DECREF(mod);
 	return NULL;
     }
