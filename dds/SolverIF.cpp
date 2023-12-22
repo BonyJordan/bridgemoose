@@ -196,6 +196,8 @@ int SolveBoardInternal(
     futp->rank[0] = leadRank;
     futp->equals[0] = 0;
     futp->score[0] = (target == 0 && solutions < 3 ? 0 : leadSideWins);
+    for (int i=0 ; i<DDS_SUITS ; i++)
+	futp->winRanks[0][i] = 0;
 
     goto SOLVER_DONE;
   }
@@ -381,6 +383,8 @@ int SolveBoardInternal(
         futp->rank[mno] = mv.rank;
         futp->equals[mno] = mv.sequence << 2;
         futp->score[mno] = lowerbound;
+	for (int i=0 ; i<DDS_SUITS ; i++)
+	    futp->winRanks[mno][i] = thrp->lookAheadPos.winRanks[iniDepth][i] << 2;
 
         thrp->forbiddenMoves[mno + 1].suit = mv.suit;
         thrp->forbiddenMoves[mno + 1].rank = mv.rank;
@@ -402,6 +406,8 @@ int SolveBoardInternal(
           futp->rank[mno + j] = mp->rank;
           futp->equals[mno + j] = mp->sequence << 2;
           futp->score[mno + j] = 0;
+	  for (int i=0 ; i<DDS_SUITS ; i++)
+	    futp->winRanks[mno + j][i] = thrp->lookAheadPos.winRanks[iniDepth][i] << 2;
         }
 
         break;
@@ -490,6 +496,8 @@ int SolveBoardInternal(
         futp->suit[i] = mp->suit;
         futp->rank[i] = mp->rank;
         futp->equals[i] = mp->sequence << 2;
+	for (int s=0 ; s<DDS_SUITS ; s++)
+	    futp->winRanks[i][s] = thrp->lookAheadPos.winRanks[iniDepth][i] << 2;
       }
 
       goto SOLVER_STATS;
@@ -501,6 +509,8 @@ int SolveBoardInternal(
       futp->suit[0] = mv.suit;
       futp->rank[0] = mv.rank;
       futp->equals[0] = mv.sequence << 2;
+      for (int i=0 ; i<DDS_SUITS ; i++)
+        futp->winRanks[0][i] = thrp->lookAheadPos.winRanks[iniDepth][i] << 2;
 
       if (solutions != 2)
         goto SOLVER_STATS;
@@ -544,6 +554,8 @@ int SolveBoardInternal(
       futp->rank[0] = thrp->bestMove[iniDepth].rank;
       futp->equals[0] = thrp->bestMove[iniDepth].sequence << 2;
       futp->score[0] = target;
+      for (int i=0 ; i<DDS_SUITS ; i++)
+        futp->winRanks[0][i] = thrp->lookAheadPos.winRanks[iniDepth][i] << 2;
 
       if (solutions != 2)
         goto SOLVER_STATS;
@@ -600,6 +612,8 @@ int SolveBoardInternal(
     futp->rank[ind] = thrp->bestMove[iniDepth].rank;
     futp->equals[ind] = thrp->bestMove[iniDepth].sequence << 2;
     futp->score[ind] = futp->score[0];
+    for (int i=0 ; i<DDS_SUITS ; i++)
+        futp->winRanks[ind][i] = thrp->lookAheadPos.winRanks[iniDepth][i] << 2;
     ind++;
   }
 

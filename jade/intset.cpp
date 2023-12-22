@@ -12,6 +12,11 @@ void INTSET::remove(int x)
     _data.erase(x);
 }
 
+void INTSET::remove_all()
+{
+    _data.clear();
+}
+
 bool INTSET::contains(int x) const
 {
     std::set<int>::const_iterator f = _data.find(x);

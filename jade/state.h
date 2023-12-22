@@ -14,14 +14,15 @@ class STATE
     int		_ns_tricks;
     int		_ew_tricks;
     int		_to_play;
+    int		_trump;
 
-    int compute_winner(int trump) const;
+    int compute_winner() const;
 
   public:
-    STATE();
+    STATE(int trump);
     ~STATE();
 
-    void play(const CARD& card, int trump);
+    void play(const CARD& card);
     void undo();
 
     hand64_t played() const { return _played; }

@@ -117,7 +117,7 @@ string Timer::SumLine(
       setw(11) << setprecision(0) << fixed << 
         1000000 * systCum / static_cast<double>(CLOCKS_PER_SEC) <<
       setw(7) << setprecision(2) << fixed <<
-        1000000 * systCum / static_cast<double>(count * CLOCKS_PER_SEC) <<
+        1000000 * systCum / (static_cast<double>(count) * static_cast<double>(CLOCKS_PER_SEC)) <<
       setw(5) << setprecision(1) << fixed << 
         100. * systCum / divisor.systCum << "\n";
   }
@@ -148,7 +148,8 @@ string Timer::DetailLine() const
       1000000 * systCum / static_cast<double>(CLOCKS_PER_SEC) <<
     setw(11) << setprecision(2) << fixed <<
       1000000 * systCum / 
-        static_cast<double>(count * CLOCKS_PER_SEC) << "\n";
+        (static_cast<double>(count) * static_cast<double>(CLOCKS_PER_SEC))
+	<< "\n";
 
   return ss.str();
 }

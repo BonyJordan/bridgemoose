@@ -12,6 +12,7 @@
 #include <iomanip>
 #include <sstream>
 #include <string.h>
+#include <sys/sysctl.h>
 
 #include "SolveBoard.h"
 #include "CalcTables.h"
@@ -202,17 +203,12 @@ void System::GetHardware(
 #ifdef __APPLE__
   // The code for Mac OS X was suggested by Matthew Kidd.
 
-  // This is physical memory, rather than "free" memory as below 
-  // for Linux.  Always leave 0.5 GB for the OS and other stuff. 
-  // It would be better to find free memory (how?) but in practice 
-  // the number of cores rather than free memory is almost certainly 
-  // the limit for Macs which have  standardized hardware (whereas 
-  // say a 32 core Linux server is hardly unusual).
-  FILE * fifo = popen("sysctl -n hw.memsize", "r");
-  fscanf(fifo, "%lld", &kilobytesFree);
-  fclose(fifo);
+  int64_t memsize;
+  size_t len = sizeof(memsize);
+  sysctlbyname("hw.memsize", &memsize, &len, NULL, 0);
 
-  kilobytesFree /= 1024;
+  kilobytesFree = uint64_t(memsize) / 1024;
+
   if (kilobytesFree > 500000)
   {
     kilobytesFree -= 500000;
@@ -223,12 +219,13 @@ void System::GetHardware(
 #endif
 
 #ifdef __linux__
-  // The code for linux was suggested by Antony Lee.
-  FILE * fifo = popen(
-//    "free -k | tail -n+3 | head -n1 | awk '{print $NF}'", "r");
-    "free -k | awk '/Mem:/ {print $NF}'", "r");
-  int ignore = fscanf(fifo, "%llu", &kilobytesFree);
-  fclose(fifo);
+  // Use half of the physical memory
+  long pages = sysconf (_SC_PHYS_PAGES);
+  long pagesize = sysconf (_SC_PAGESIZE);
+  if (pages > 0 && pagesize > 0)
+    kilobytesFree = static_cast<unsigned long long>(pages * pagesize / 1024 / 2);
+  else
+    kilobytesFree = 1024 * 1024; // guess 1GB
 
   ncores = sysconf(_SC_NPROCESSORS_ONLN);
   return;
@@ -272,12 +269,6 @@ bool System::IsSingleThreaded() const
 bool System::IsIMPL() const
 {
   return (preferredSystem >= DDS_SYSTEM_THREAD_STLIMPL);
-}
-
-
-unsigned System::NumThreads() const
-{
-  return static_cast<unsigned>(numThreads);
 }
 
 

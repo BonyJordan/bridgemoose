@@ -20,6 +20,7 @@ class INTSET
     bool empty() const { return _data.empty(); }
     void insert(int x);
     void remove(int x);
+    void remove_all();
     int pop_smallest();
     bool contains(int x) const;
     size_t size() const { return _data.size(); }

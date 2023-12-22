@@ -2,12 +2,13 @@
 #include <stdio.h>
 #include "state.h"
 
-STATE::STATE() :
+STATE::STATE(int trump) :
     _played(0),
     _num_played(0),
     _ns_tricks(0),
     _ew_tricks(0),
-    _to_play(J_WEST)
+    _to_play(J_WEST),
+    _trump(trump)
 {
     _leader[0] = J_WEST;
 }
@@ -18,7 +19,7 @@ STATE::~STATE()
 }
 
 
-void STATE::play(const CARD& card, int trump)
+void STATE::play(const CARD& card)
 {
     assert(_num_played < 52);
     _history[_num_played] = card;
@@ -28,7 +29,7 @@ void STATE::play(const CARD& card, int trump)
 
     if (_num_played % 4 == 0)
     {
-	int winner = compute_winner(trump);
+	int winner = compute_winner();
 	if (winner == J_EAST || winner == J_WEST) {
 	    _ew_tricks++;
 	} else {
@@ -66,7 +67,7 @@ void STATE::undo()
 }
 
 
-int STATE::compute_winner(int trump) const
+int STATE::compute_winner() const
 {
     assert(_num_played % 4 == 0);
     CARD winning_card = _history[_num_played - 4];
@@ -83,7 +84,7 @@ int STATE::compute_winner(int trump) const
 		assert(n >= 0 && n<13);
 		winner = (_leader[n] + i + 1) % 4;
 	    }
-	} else if (card.suit == trump) {
+	} else if (card.suit == _trump) {
 	    winning_card = card;
 	    int n = _num_played/4 - 1;
 	    assert(n >= 0 && n<13);

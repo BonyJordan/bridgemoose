@@ -26,6 +26,9 @@ class SOLVER
   
     // Internal Functions
     LUBDT doit(STATE& state, const INTSET& dids, LUBDT search_bounds);
+    void eval_1(const std::vector<CARD>& plays_so_far, STATE& state,
+	INTSET& dids);
+    void eval_2(STATE& state, INTSET& dids);
 
   public:
     // public interface
@@ -34,6 +37,7 @@ class SOLVER
     ~SOLVER();
 
     BDT eval(STATE& state, const INTSET& dids);
+    BDT eval(const std::vector<CARD> plays_so_far);
 
     size_t count_ew() const { return _wests.size(); }
     hand64_t west(size_t i) const { return _wests[i]; }
