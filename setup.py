@@ -4,6 +4,18 @@ import os
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+module_jade = setuptools.Extension('bridgemoose.jade',
+    extra_compile_args = ['-std=c++11'],
+    sources=[os.path.join('jade', x) for x in [
+        'Python.cpp',
+        'bdt.cpp',
+        'cards.cpp',
+        'intset.cpp',
+        'solver.cpp',
+        'state.cpp',
+        'xxhash.cpp',
+    ]])
+
 module_jbdd = setuptools.Extension('bridgemoose.jbdd',
     sources=["jbdd/jbdd.cpp", "jbdd/j128.cpp"])
 
@@ -47,7 +59,7 @@ module_dds = setuptools.Extension('bridgemoose.dds',
 setuptools.setup(
     packages=setuptools.find_packages('src'),
     package_dir={'':'src'},
-    ext_modules=[module_dds, module_jbdd],
+    ext_modules=[module_dds, module_jbdd, module_jade],
     name="BridgeMoose",
     version="0.2",
     author="Jordan",

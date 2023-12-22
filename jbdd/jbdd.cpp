@@ -4,17 +4,20 @@
 #include <vector>
 #include <map>
 #include "j128.h"
+#include "jbdd.h"
 
 #ifndef Py_IS_TYPE
 #define Py_IS_TYPE(obj, type)	(Py_TYPE((obj)) == (type))
 #endif
 
+/*
+ * These are now defined in jbdd.h
 typedef int64_t bddref_t;
 const bddref_t bdd_true = 1;
 const bddref_t bdd_false = -1;
-static bool debug = false;
 
 typedef int bddvar_t;
+ */
 
 struct BDD_TRIPLE {
     bddvar_t	vnum;
@@ -119,7 +122,6 @@ BDD_ITE_MAP& ite_map()
 }
 
 
-static
 bddref_t bdd_node(bddvar_t vnum, bddref_t avec, bddref_t sans)
 {
     if (avec == sans)
@@ -164,7 +166,6 @@ bddref_t bdd_node(bddvar_t vnum, bddref_t avec, bddref_t sans)
     return new_index;
 }
 
-static
 bddref_t bdd_ite(bddref_t i, bddref_t t, bddref_t e)
 {
     // Quick optimizations!
