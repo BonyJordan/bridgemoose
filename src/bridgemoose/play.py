@@ -155,7 +155,28 @@ class PlayView:
 
         return list(my_hand.cards)
 
-    def play_card(self, card):
+    def finish_trick(self):
+        assert len(self.current_trick) == 4
+
+        best_card = self.current_trick[0]
+        best_index = 0
+        for i in range(1, 4):
+            card = self.current_trick[i]
+            if card.suit == best_card.suit:
+                if card > best_card:
+                    best_card, best_index = card, i
+            elif card.suit == self.strain:
+                best_card, best_index = card, i
+
+        self.next_play += best_index
+        if self.next_play in [self.declarer, self.dummy]:
+            self.declarer_tricks += 1
+        else:
+            self.defense_tricks += 1
+        self.current_trick = []
+
+
+    def play_card(self, card, finish_trick=True):
         if isinstance(card, str):
             card = Card(card)
         if not isinstance(card, Card):
@@ -182,26 +203,8 @@ class PlayView:
         self.current_trick.append(card)
         self.next_play += 1
 
-        if len(self.current_trick) < 4:
-            return
-
-        best_card = self.current_trick[0]
-        best_index = 0
-        for i in range(1, 4):
-            card = self.current_trick[i]
-            if card.suit == best_card.suit:
-                if card > best_card:
-                    best_card, best_index = card, i
-            elif card.suit == self.strain:
-                best_card, best_index = card, i
-
-        self.next_play += best_index
-        if self.next_play in [self.declarer, self.dummy]:
-            self.declarer_tricks += 1
-        else:
-            self.defense_tricks += 1
-        self.current_trick = []
-
+        if len(self.current_trick) == 4 and finish_trick:
+            self.finish_trick()
 
 __all__ = ["PartialHand", "PlayView", "ShowOut"]
 
