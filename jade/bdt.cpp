@@ -358,7 +358,7 @@ void BDT::get_cubes_inner(std::vector<INTSET>& out, INTSET head, BDT seen,
 	// first avec.
 	BDT avec(node.avec());
 	head.insert(node.var());
-	if (avec.extrude(node.var()) <= seen)
+	if (avec.extrude(node.var()).subset_of(seen))
 	    ;
 	else
 	    avec.get_cubes_inner(out, head, seen.require(node.var()), true);

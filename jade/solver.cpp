@@ -39,6 +39,14 @@ void solve_some()
 void load_some()
 {
     int k = 0;
+    int target;
+
+    if (_state.to_play_ns()) {
+	target = _solver.target() - _state.ns_tricks();
+    } else {
+	target = handbits_count(_solver.north()) - _solver.target() + 1 - _state.ew_tricks();
+    }
+
     while (true)
     {
 	if (!_itr.more() || k == MAXNOOFBOARDS) {
@@ -67,7 +75,7 @@ void load_some()
 	_bo.deals[k].first = _state.trick_leader();
 	_bo.mode[k] = _mode;
 	_bo.solutions[k] = _solutions;
-	_bo.target[k] = _solver.target() - _state.ns_tricks();
+	_bo.target[k] = target;
 
 	k++;
 	_itr.next();
@@ -210,8 +218,9 @@ void SOLVER::eval_2(STATE& state, INTSET& dids)
     {
 	for (int i=0 ; i<loader.chunk_size() ; i++) {
 	    int score = loader.chunk_solution(i).score[0];
-	    if (score <= 0)
+	    if (score <= 0) {
 		dids.remove(loader.chunk_did(i));
+	    }
 	}
     }
 }
@@ -221,12 +230,19 @@ BDT SOLVER::eval(STATE& state, const INTSET& dids)
 {
     LUBDT search_bounds(set_to_atoms(dids), set_to_cube(dids));
     LUBDT result = doit(state, dids, search_bounds);
-    return result.lower;
+    return (result.lower | search_bounds.lower) & search_bounds.upper;
 }
 
 
 LUBDT SOLVER::doit(STATE& state, const INTSET& dids, LUBDT search_bounds)
 {
-    printf("Welcome to doit!\n");
+    if (state.ns_tricks() >= _target) {
+	BDT cube = set_to_cube(dids);
+	return LUBDT(cube, cube);
+    } else if (handbits_count(_north) - state.ew_tricks() < _target) {
+	// I think this never happens
+	assert(false);
+    }
+
     return search_bounds;
 }

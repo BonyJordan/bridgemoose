@@ -6,6 +6,7 @@
 
 PyObject* _hand_type = NULL;
 PyObject* _partial_hand_type = NULL;
+PyObject* _jbdd_type = NULL;
 
 const char* SUITS = "CDHS";
 const char* RANKS = "23456789TJQKA";
@@ -122,6 +123,39 @@ typedef struct {
 
 
 static PyObject*
+bdt_to_py_list_of_cubes(BDT bdt)
+{
+    std::vector<INTSET> cubes = bdt.get_cubes();
+    PyObject* outer = PyList_New(cubes.size());
+    if (outer == NULL)
+	return NULL;
+
+    std::vector<INTSET>::const_iterator itr;
+    Py_ssize_t i, j;
+    for (i=0,itr = cubes.begin() ; itr != cubes.end() ; itr++,i++)
+    {
+	PyObject* inner = PyList_New(itr->size());
+	if (inner == NULL) {
+	    Py_DECREF(outer);
+	    return NULL;
+	}
+	j = 0;
+	for (INTSET_ITR jtr(*itr) ; jtr.more() ; jtr.next(),j++) {
+	    PyObject* num = Py_BuildValue("i", jtr.current());
+	    if (num == NULL) {
+		Py_DECREF(inner);
+		Py_DECREF(outer);
+		return NULL;
+	    }
+	    PyList_SET_ITEM(inner, j, num);
+	}
+	PyList_SET_ITEM(outer, i, inner);
+    }
+    return outer;
+}
+
+
+static PyObject*
 Solver_new(PyTypeObject* type, PyObject* args, PyObject* kwds)
 {
     Solver_Object* self = (Solver_Object*) type->tp_alloc(type, 0);
@@ -129,6 +163,17 @@ Solver_new(PyTypeObject* type, PyObject* args, PyObject* kwds)
 	self->solver = NULL;
     }
     return (PyObject*) self;
+}
+
+
+static void
+Solver_dealloc(Solver_Object* self)
+{
+    if (self->solver != NULL) {
+	delete self->solver;
+	self->solver = NULL;
+    }
+    Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
 
@@ -300,7 +345,7 @@ Solver_eval(PyObject* self, PyObject* args)
     Py_DECREF(iter);
 
     BDT out = so->solver->eval(plays);
-    return Py_BuildValue("s", "Are you happy?");
+    return bdt_to_py_list_of_cubes(out);
 }
 
 
@@ -320,6 +365,7 @@ static PyTypeObject Solver_Type = {
     .tp_methods = Solver_RegularMethods,
     .tp_init = (initproc) Solver_init,
     .tp_new = Solver_new,
+    .tp_dealloc = (destructor)Solver_dealloc,
 };
 
 static PyModuleDef jade_module = {
@@ -332,32 +378,49 @@ static PyModuleDef jade_module = {
 PyMODINIT_FUNC
 PyInit_jade(void)
 {
+    PyObject* mod = NULL;
+    PyObject* jb_mod = NULL;
     PyObject* bm_mod = PyImport_AddModule("bridgemoose");
     if (bm_mod == NULL)
-	return NULL;
+	goto fie;
+
     _hand_type = PyObject_GetAttrString(bm_mod, "Hand");
     if (_hand_type == NULL)
-	return NULL;
+	goto fie;
+
     _partial_hand_type = PyObject_GetAttrString(bm_mod, "PartialHand");
     if (_partial_hand_type == NULL)
-	return NULL;
+	goto fie;
+
+    jb_mod = PyObject_GetAttrString(bm_mod, "jbdd");
+    if (jb_mod == NULL)
+	goto fie;
+    _jbdd_type = PyObject_GetAttrString(jb_mod, "BDD");
+    if (_jbdd_type == NULL)
+	goto fie;
 
     /////
 
-    PyObject* mod;
+
     if (PyType_Ready(&Solver_Type) < 0)
-	return NULL;
+	goto fie;
 
     mod = PyModule_Create(&jade_module);
     if (mod == NULL)
-	return NULL;
+	goto fie;
 
     Py_INCREF(&Solver_Type);
     if (PyModule_AddObject(mod, "Solver", (PyObject*)&Solver_Type) < 0) {
 	Py_DECREF(&Solver_Type);
-	Py_DECREF(mod);
-	return NULL;
+	goto fie;
     }
 
     return mod;
+
+  fie:
+    Py_XDECREF(mod);
+    Py_XDECREF(_jbdd_type);
+    Py_XDECREF(_partial_hand_type);
+    Py_XDECREF(_hand_type);
+    return NULL;
 }

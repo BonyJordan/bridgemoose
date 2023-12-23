@@ -65,10 +65,11 @@ class BDT
     BDT(const BDT& b) : _key(b._key) {}
     ~BDT() {}
 
+    bool subset_of(const BDT& o) const { return (*this & o) == *this; }
+    bool superset_of(const BDT& o) const { return (*this & o) == o; }
     bool operator==(const BDT& o) const { return _key == o._key; }
     bool operator!=(const BDT& o) const { return _key != o._key; }
-    bool operator<=(const BDT& o) const { return (*this & o) == *this; }
-    bool operator>=(const BDT& o) const { return (*this & o) == o; }
+    bool operator<(const BDT& o) const { return _key < o._key; }
     BDT& operator=(const BDT& o) { _key = o._key; return *this; }
     BDT operator|(const BDT& o) const { return BDT(unionize(_key, o._key)); }
     BDT& operator|=(const BDT& o) { _key = unionize(_key, o._key); return *this; }
