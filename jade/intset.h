@@ -2,6 +2,7 @@
 #define _INTSET_H_
 
 #include <set>
+#include <string>
 
 class INTSET
 {
@@ -68,5 +69,7 @@ class INTSET_PAIR_ITR
     bool both() { return _both; }
     void next();
 };
+
+std::string intset_to_string(const INTSET& intset);
 
 #endif // _INTSET_H_

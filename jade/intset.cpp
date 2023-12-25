@@ -147,3 +147,23 @@ INTSET INTSET::full_set(int n)
 	out.insert(i);
     return out;
 }
+
+/////////////////
+
+std::string intset_to_string(const INTSET& intset)
+{
+    std::string out = "[";
+    bool first = true;
+    char buf[20];
+
+    for (INTSET_ITR itr(intset) ; itr.more() ; itr.next()) {
+        if (first)
+            first = false;
+        else
+            out += ',';
+
+        snprintf(buf, sizeof buf, "%d", itr.current());
+        out += buf;
+    }
+    return out + ']';
+}

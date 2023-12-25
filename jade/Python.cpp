@@ -119,6 +119,7 @@ bool hand_from_pyo(PyObject* pyo, hand64_t& hand)
 typedef struct {
     PyObject_HEAD
     SOLVER* solver;
+    PROBLEM problem;
 } Solver_Object;
 
 
@@ -282,7 +283,13 @@ Solver_init(Solver_Object* self, PyObject* args, PyObject* kwds)
 	easts.push_back(ehand);
     }
 
-    self->solver = new SOLVER(north, south, trump, target, wests, easts);
+    self->problem.north = north;
+    self->problem.south = south;
+    self->problem.trump = trump;
+    self->problem.target = target;
+    self->problem.wests = wests;
+    self->problem.easts = easts;
+    self->solver = new SOLVER(self->problem);
     return 0;
 }
 

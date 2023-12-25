@@ -23,6 +23,7 @@ CARD handbit_to_card(hand64_t bit)
 	bit >>= 16;
     }
     assert(false);
+    return CARD();
 }
 
 

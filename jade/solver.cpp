@@ -4,9 +4,8 @@
 
 class DDS_LOADER
 {
-    const SOLVER& _solver;
-    const STATE&  _state;
-    const INTSET& _dids;
+    const PROBLEM& _problem;
+    const STATE&   _state;
 
     INTSET_ITR    _itr;
     int           _did_map[MAXNOOFBOARDS];
@@ -18,75 +17,76 @@ class DDS_LOADER
     int _solutions;
 
   private:
-void solve_some()
-{
-    if (_bo.noOfBoards == 0) {
-	_solved.noOfBoards = 0;
-	return;
-    }
-
-    int r = SolveAllBoardsBin(&_bo, &_solved);
-    if (r < 0) {
-	char line[80];
-	ErrorMessage(r, line);
-	fprintf(stderr, "DDS_LOADER::solve_some(): DDS(%d): %s\n", r, line);
-	exit(-1);
-    }
-    assert(_solved.noOfBoards == _bo.noOfBoards);
-}
-
-
-void load_some()
-{
-    int k = 0;
-    int target;
-
-    if (_state.to_play_ns()) {
-	target = _solver.target() - _state.ns_tricks();
-    } else {
-	target = handbits_count(_solver.north()) - _solver.target() + 1 - _state.ew_tricks();
-    }
-
-    while (true)
+    void solve_some()
     {
-	if (!_itr.more() || k == MAXNOOFBOARDS) {
-	    _bo.noOfBoards = k;
-	    solve_some();
-	    return;
-	}
+        if (_bo.noOfBoards == 0) {
+            _solved.noOfBoards = 0;
+            return;
+        }
 
-	_bo.deals[k].trump = _solver.trump();
-	for (int j=0 ; j<3 ; j++) {
-	    CARD tc = _state.trick_card(j);
-	    _bo.deals[k].currentTrickSuit[j] = tc.suit;
-	    _bo.deals[k].currentTrickRank[j] = tc.rank;
-	}
-	int did = _itr.current();
-	_did_map[k] = did;
-	set_deal_cards(_solver.north() & ~_state.played(), J_NORTH,
-	    _bo.deals[k]);
-	set_deal_cards(_solver.south() & ~_state.played(), J_SOUTH,
-	    _bo.deals[k]);
-	set_deal_cards(_solver.west(did) & ~_state.played(), J_WEST,
-	    _bo.deals[k]);
-	set_deal_cards(_solver.east(did) & ~_state.played(), J_EAST,
-	    _bo.deals[k]);
-
-	_bo.deals[k].first = _state.trick_leader();
-	_bo.mode[k] = _mode;
-	_bo.solutions[k] = _solutions;
-	_bo.target[k] = target;
-
-	k++;
-	_itr.next();
+        int r = SolveAllBoardsBin(&_bo, &_solved);
+        if (r < 0) {
+            char line[80];
+            ErrorMessage(r, line);
+            fprintf(stderr, "DDS_LOADER::solve_some(): DDS(%d): %s\n", r, line);
+            exit(-1);
+        }
+        assert(_solved.noOfBoards == _bo.noOfBoards);
     }
-}
+
+
+    void load_some()
+    {
+        int k = 0;
+        int target;
+
+        if (_state.to_play_ns()) {
+            target = _problem.target - _state.ns_tricks();
+        } else {
+            target = handbits_count(_problem.north) - _problem.target + 1 - _state.ew_tricks();
+        }
+
+        while (true)
+        {
+            if (!_itr.more() || k == MAXNOOFBOARDS) {
+                _bo.noOfBoards = k;
+                solve_some();
+                return;
+            }
+
+            _bo.deals[k].trump = _problem.trump;
+            for (int j=0 ; j<3 ; j++) {
+                CARD tc = _state.trick_card(j);
+                _bo.deals[k].currentTrickSuit[j] = tc.suit;
+                _bo.deals[k].currentTrickRank[j] = tc.rank;
+            }
+            int did = _itr.current();
+            _did_map[k] = did;
+            set_deal_cards(_problem.north & ~_state.played(), J_NORTH,
+                _bo.deals[k]);
+            set_deal_cards(_problem.south & ~_state.played(), J_SOUTH,
+                _bo.deals[k]);
+            set_deal_cards(_problem.wests[did] & ~_state.played(), J_WEST,
+                _bo.deals[k]);
+            set_deal_cards(_problem.easts[did] & ~_state.played(), J_EAST,
+                _bo.deals[k]);
+
+            _bo.deals[k].first = _state.trick_leader();
+            _bo.mode[k] = _mode;
+            _bo.solutions[k] = _solutions;
+            _bo.target[k] = target;
+
+            k++;
+            _itr.next();
+        }
+    }
 
   public:
-    DDS_LOADER(const SOLVER& solver, const STATE& state, const INTSET& dids,
-	int mode, int solutions) :
-    _solver(solver),_state(state),_dids(dids),_itr(dids),_mode(mode),
-    _solutions(solutions)
+    DDS_LOADER(const PROBLEM& problem, const STATE &state, const INTSET& dids,
+        int mode, int solutions)
+        :
+        _problem(problem),_state(state),_itr(dids),
+        _mode(mode),_solutions(solutions)
     {
 	load_some();
     }
@@ -126,19 +126,25 @@ static BDT set_to_cube(const INTSET& is)
     return out;
 }
 
-
-SOLVER::SOLVER(hand64_t north, hand64_t south, int trump, int target,
-    const std::vector<hand64_t>& wests, const std::vector<hand64_t>& easts)
-    :
-_north(north),
-_south(south),
-_trump(trump),
-_target(target),
-_wests(wests),
-_easts(easts)
+static BDT reduce_bdt(BDT x, const INTSET& big_dids, const INTSET& small_dids)
 {
-    assert(_wests.size() == _easts.size());
-    _all_dids = INTSET::full_set((int)_wests.size());
+    for (INTSET_PAIR_ITR itr(big_dids, small_dids) ; itr.more() ; itr.next())
+    {
+        if (itr.a_only())
+            x = x.remove(itr.current());
+    }
+    return x;
+}
+
+//////////////////////
+
+SOLVER::SOLVER(const PROBLEM& problem)
+    :
+    _p(problem)
+{
+    assert(_p.wests.size() == _p.easts.size());
+    _all_dids = INTSET::full_set((int)_p.wests.size());
+    _all_cube = set_to_cube(_all_dids);
 }
 
 
@@ -150,7 +156,7 @@ SOLVER::~SOLVER()
 BDT SOLVER::eval(const std::vector<CARD> plays_so_far)
 {
     INTSET dids = _all_dids;
-    STATE state(_trump);
+    STATE state(_p.trump);
 
     eval_1(plays_so_far, state, dids);
     eval_2(state, dids);
@@ -177,10 +183,10 @@ void SOLVER::eval_1(const std::vector<CARD>& plays_so_far, STATE& state,
 	    {
 		bool found = false;
 		if (state.to_play() == J_EAST) {
-		    if ((_easts[itr.current()] & bit) != 0)
+		    if ((_p.easts[itr.current()] & bit) != 0)
 			found = true;
 		} else {
-		    if ((_wests[itr.current()] & bit) != 0)
+		    if ((_p.wests[itr.current()] & bit) != 0)
 			found = true;
 		}
 		if (found)
@@ -188,10 +194,10 @@ void SOLVER::eval_1(const std::vector<CARD>& plays_so_far, STATE& state,
 	    }
 	    dids = good_dids;
 	} else if (state.to_play() == J_NORTH) {
-	    if ((_north & bit) == 0)
+	    if ((_p.north & bit) == 0)
 		dids.remove_all();
 	} else if (state.to_play() == J_SOUTH) {
-	    if ((_south & bit) == 0)
+	    if ((_p.south & bit) == 0)
 		dids.remove_all();
 	} else {
 	    // Impossible!
@@ -213,7 +219,7 @@ void SOLVER::eval_2(STATE& state, INTSET& dids)
     // mode 1: find the actual score
     // solutions 1: find any card which succeeds
 
-    DDS_LOADER loader(*this, state, dids, 1, 1);
+    DDS_LOADER loader(_p, state, dids, 1, 1);
     for ( ; loader.more() ; loader.next())
     {
 	for (int i=0 ; i<loader.chunk_size() ; i++) {
@@ -228,6 +234,7 @@ void SOLVER::eval_2(STATE& state, INTSET& dids)
 
 BDT SOLVER::eval(STATE& state, const INTSET& dids)
 {
+    printf("JORDAN: eval(STATE, INTSET)\n");
     LUBDT search_bounds(set_to_atoms(dids), set_to_cube(dids));
     LUBDT result = doit(state, dids, search_bounds);
     return (result.lower | search_bounds.lower) & search_bounds.upper;
@@ -236,13 +243,146 @@ BDT SOLVER::eval(STATE& state, const INTSET& dids)
 
 LUBDT SOLVER::doit(STATE& state, const INTSET& dids, LUBDT search_bounds)
 {
-    if (state.ns_tricks() >= _target) {
+    printf("JORDAN: doit\n");
+    if (state.ns_tricks() >= _p.target) {
 	BDT cube = set_to_cube(dids);
 	return LUBDT(cube, cube);
-    } else if (handbits_count(_north) - state.ew_tricks() < _target) {
+    } else if (handbits_count(_p.north) - state.ew_tricks() < _p.target) {
 	// I think this never happens
 	assert(false);
     }
 
-    return search_bounds;
+    LUBDT node_bounds(BDT(), _all_cube);
+    bool new_trick = state.new_trick();
+    hand64_t state_key = state.to_key();
+
+    if (new_trick) {
+        TTMAP::iterator f = _tt.find(state_key);
+        if (f != _tt.end()) {
+            node_bounds = f->second;
+        }
+    }
+
+    INTSET node_dids = node_bounds.lower.get_used_vars();
+    for (INTSET_PAIR_ITR itr(dids, node_dids) ; itr.more() ; itr.next()) {
+        if (itr.a_only()) {
+            node_bounds.lower |= BDT::atom(itr.current());
+            node_bounds.upper = node_bounds.upper.extrude(itr.current());
+        }
+    }
+
+    search_bounds.lower |= node_bounds.lower;
+    search_bounds.upper &= node_bounds.upper;
+    if (search_bounds.upper.subset_of(search_bounds.lower))
+        return node_bounds;
+
+    LUBDT out;
+    if (state.to_play_ew())
+        out = doit_ew(state, dids, search_bounds, node_bounds);
+    else
+        out = doit_ns(state, dids, search_bounds, node_bounds);
+
+    if (new_trick) {
+        _tt[state_key] = out;
+    }
+    return out;
+}
+
+
+LUBDT SOLVER::doit_ew(STATE& state, const INTSET& dids, LUBDT search_bounds,
+    LUBDT node_bounds)
+{
+    fprintf(stderr, "Calling doit_ew: NYI!\n");
+    return node_bounds;
+}
+
+LUBDT SOLVER::doit_ns(STATE& state, const INTSET& dids, LUBDT search_bounds,
+    LUBDT node_bounds)
+{
+    printf("JORDAN: doit_ns\n");
+    const bool debug = true;
+    if (debug) {
+        printf("welcome to doit_ns\n");
+    }
+
+    UPMAP usable_plays = find_usable_plays_ns(state, dids);
+    BDT cum_upper = node_bounds.lower;
+
+    while (!usable_plays.empty())
+    {
+        CARD card = recommend_usable_play(usable_plays);
+        // better copy 'cause we're about to delete it
+        INTSET sub_dids = usable_plays[card];
+        usable_plays.erase(card);
+
+        assert(sub_dids.size() > 0);
+
+        // Given our invariants, no information is gleaned.
+        if (sub_dids.size() == 1)
+            continue;
+
+        // Okay, try the play and see what happens!
+        BDT sub_lower = reduce_bdt(search_bounds.lower, dids, sub_dids);
+        BDT sub_upper = reduce_bdt(search_bounds.upper, dids, sub_dids);
+        LUBDT sub_bounds(sub_lower, sub_upper);
+
+        state.play(card);
+        LUBDT result = doit(state, sub_dids, sub_bounds);
+        state.undo();
+
+        search_bounds.lower |= result.lower;
+        node_bounds.lower |= result.lower;
+        cum_upper |= result.upper;
+
+        // Did we cutoff?
+        if (search_bounds.upper.subset_of(search_bounds.lower))
+            return node_bounds;
+    }
+
+    node_bounds.upper &= cum_upper;
+    assert((search_bounds.upper & cum_upper).subset_of(search_bounds.lower));
+    return node_bounds;
+}
+
+
+UPMAP SOLVER::find_usable_plays_ns(const STATE& state, const INTSET& dids)
+    const
+{
+    printf("JORDAN: find_usable_plays_ns\n");
+    UPMAP out;
+    DDS_LOADER loader(_p, state, dids, 0, 2);
+    for ( ; loader.more() ; loader.next())
+    {
+	for (int i=0 ; i<loader.chunk_size() ; i++) {
+            const futureTricks& sb = loader.chunk_solution(i);
+	    assert(sb.score[0] != 0 && sb.score[0] != 1);
+            for (int j=0 ; j<sb.cards ; j++) {
+                CARD card(sb.suit[j], sb.rank[j]);
+                out[card].insert(loader.chunk_did(i));
+	    }
+	}
+    }
+
+    UPMAP::const_iterator itr;
+    for (itr = out.begin() ; itr != out.end() ; itr++) {
+        printf("JORDAN: card %s -> intset %s\n",
+            card_to_string(itr->first).c_str(),
+            intset_to_string(itr->second).c_str());
+    }
+    return out;
+}
+
+
+CARD SOLVER::recommend_usable_play(const UPMAP& upmap) const
+{
+    printf("JORDAN: recommend_usable_play\n");
+    UPMAP::const_iterator best = upmap.begin();
+    UPMAP::const_iterator itr = best;
+    assert(itr != upmap.end());
+
+    for (itr++ ; itr != upmap.end() ; itr++) {
+        if (itr->second.size() > best->second.size())
+            best = itr;
+    }
+    return best->first;
 }
