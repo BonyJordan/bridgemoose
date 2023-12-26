@@ -259,7 +259,6 @@ void SOLVER::eval_2(STATE& state, INTSET& dids)
 
 BDT SOLVER::eval(STATE& state, const INTSET& dids)
 {
-    printf("JORDAN: eval(STATE, INTSET)\n");
     LUBDT search_bounds(set_to_atoms(dids), set_to_cube(dids));
     LUBDT result = doit(state, dids, search_bounds);
     return (result.lower | search_bounds.lower) & search_bounds.upper;
@@ -268,7 +267,6 @@ BDT SOLVER::eval(STATE& state, const INTSET& dids)
 
 LUBDT SOLVER::doit(STATE& state, const INTSET& dids, LUBDT search_bounds)
 {
-    printf("JORDAN: doit\n");
     if (state.ns_tricks() >= _p.target) {
 	BDT cube = set_to_cube(dids);
 	return LUBDT(cube, cube);
@@ -356,8 +354,7 @@ LUBDT SOLVER::doit_ew(STATE& state, const INTSET& dids, LUBDT search_bounds,
 LUBDT SOLVER::doit_ns(STATE& state, const INTSET& dids, LUBDT search_bounds,
     LUBDT node_bounds)
 {
-    printf("JORDAN: doit_ns\n");
-    const bool debug = true;
+    const bool debug = false;
     if (debug) {
         printf("welcome to doit_ns\n");
     }
@@ -393,7 +390,6 @@ LUBDT SOLVER::doit_ns(STATE& state, const INTSET& dids, LUBDT search_bounds,
 
         // Did we cutoff?
         if (search_bounds.upper.subset_of(search_bounds.lower)) {
-            printf("JORDAN: doit_ns cutoff\n");
             return node_bounds;
         }
     }
@@ -434,7 +430,6 @@ UPMAP SOLVER::find_usable_plays_ew(const STATE& state, const INTSET& dids) const
 UPMAP SOLVER::find_usable_plays_ns(const STATE& state, const INTSET& dids)
     const
 {
-    printf("JORDAN: find_usable_plays_ns\n");
     UPMAP out;
     DDS_LOADER loader(_p, state, dids, 0, 2);
     for ( ; loader.more() ; loader.next())
@@ -449,19 +444,12 @@ UPMAP SOLVER::find_usable_plays_ns(const STATE& state, const INTSET& dids)
 	}
     }
 
-    UPMAP::const_iterator itr;
-    for (itr = out.begin() ; itr != out.end() ; itr++) {
-        printf("JORDAN: card %s -> intset %s\n",
-            card_to_string(itr->first).c_str(),
-            intset_to_string(itr->second).c_str());
-    }
     return out;
 }
 
 
 CARD SOLVER::recommend_usable_play(const UPMAP& upmap) const
 {
-    printf("JORDAN: recommend_usable_play\n");
     UPMAP::const_iterator best = upmap.begin();
     UPMAP::const_iterator itr = best;
     jassert(itr != upmap.end());
