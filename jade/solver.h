@@ -3,6 +3,7 @@
 
 #include <map>
 #include <vector>
+#include <string>
 #include "cards.h"
 #include "lubdt.h"
 #include "state.h"
@@ -41,6 +42,7 @@ class SOLVER
 	INTSET& dids);
     void eval_2(STATE& state, INTSET& dids);
 
+    UPMAP find_usable_plays_ew(const STATE& state, const INTSET& dids) const;
     UPMAP find_usable_plays_ns(const STATE& state, const INTSET& dids) const;
     CARD recommend_usable_play(const UPMAP& upmap) const;
 
@@ -61,5 +63,7 @@ class SOLVER
     int trump() const { return _p.trump; }
     int target() const { return _p.target; }
 };
+
+std::string bdt_to_string(BDT bdt);
 
 #endif // _SOLVER_H_

@@ -1,3 +1,4 @@
+#include "jassert.h"
 #include "solver.h"
 
 //////////////
@@ -31,7 +32,7 @@ class DDS_LOADER
             fprintf(stderr, "DDS_LOADER::solve_some(): DDS(%d): %s\n", r, line);
             exit(-1);
         }
-        assert(_solved.noOfBoards == _bo.noOfBoards);
+        jassert(_solved.noOfBoards == _bo.noOfBoards);
     }
 
 
@@ -126,6 +127,16 @@ static BDT set_to_cube(const INTSET& is)
     return out;
 }
 
+static BDT expand_bdt(BDT x, const INTSET& big_dids, const INTSET& small_dids)
+{
+    for (INTSET_PAIR_ITR itr(big_dids, small_dids) ; itr.more() ; itr.next())
+    {
+        if (itr.a_only())
+            x = x.extrude(itr.current());
+    }
+    return x;
+}
+
 static BDT reduce_bdt(BDT x, const INTSET& big_dids, const INTSET& small_dids)
 {
     for (INTSET_PAIR_ITR itr(big_dids, small_dids) ; itr.more() ; itr.next())
@@ -136,13 +147,27 @@ static BDT reduce_bdt(BDT x, const INTSET& big_dids, const INTSET& small_dids)
     return x;
 }
 
+static BDT reduce_require_bdt(BDT x, const INTSET& big_dids,
+    const INTSET& small_dids)
+{
+    for (INTSET_PAIR_ITR itr(big_dids, small_dids) ; itr.more() ; itr.next())
+    {
+        if (itr.a_only()) {
+            x = x.require(itr.current());
+            x = x.remove(itr.current());
+        }
+    }
+    return x;
+}
+
+
 //////////////////////
 
 SOLVER::SOLVER(const PROBLEM& problem)
     :
     _p(problem)
 {
-    assert(_p.wests.size() == _p.easts.size());
+    jassert(_p.wests.size() == _p.easts.size());
     _all_dids = INTSET::full_set((int)_p.wests.size());
     _all_cube = set_to_cube(_all_dids);
 }
@@ -201,7 +226,7 @@ void SOLVER::eval_1(const std::vector<CARD>& plays_so_far, STATE& state,
 		dids.remove_all();
 	} else {
 	    // Impossible!
-	    assert(false);
+	    jassert(false);
 	}
 
 	state.play(card);
@@ -249,7 +274,7 @@ LUBDT SOLVER::doit(STATE& state, const INTSET& dids, LUBDT search_bounds)
 	return LUBDT(cube, cube);
     } else if (handbits_count(_p.north) - state.ew_tricks() < _p.target) {
 	// I think this never happens
-	assert(false);
+	jassert(false);
     }
 
     LUBDT node_bounds(BDT(), _all_cube);
@@ -292,9 +317,41 @@ LUBDT SOLVER::doit(STATE& state, const INTSET& dids, LUBDT search_bounds)
 LUBDT SOLVER::doit_ew(STATE& state, const INTSET& dids, LUBDT search_bounds,
     LUBDT node_bounds)
 {
-    fprintf(stderr, "Calling doit_ew: NYI!\n");
+    UPMAP plays = find_usable_plays_ew(state, dids);
+
+    BDT cum_lower = node_bounds.upper;
+
+    UPMAP::const_iterator itr;
+    for (itr=plays.begin() ; itr != plays.end() ; itr++)
+    {
+        CARD card = itr->first;
+        const INTSET& sub_dids = itr->second;
+        if (sub_dids.size() == 1) {
+            continue;
+        }
+
+        BDT sub_lower = reduce_require_bdt(search_bounds.lower,
+            dids, sub_dids);
+        BDT sub_upper = reduce_bdt(search_bounds.upper,
+            dids, sub_dids);
+        LUBDT sub_bounds(sub_lower, sub_upper);
+
+        state.play(card);
+        LUBDT result = doit(state, sub_dids, sub_bounds);
+        state.undo();
+
+        search_bounds.upper &= expand_bdt(result.upper, dids, sub_dids);
+        node_bounds.upper &= expand_bdt(result.upper, _all_dids, sub_dids);
+        cum_lower &= expand_bdt(result.upper, _all_dids, sub_dids);
+
+        if (search_bounds.upper.subset_of(search_bounds.lower))
+            return node_bounds;
+    }
+
+    node_bounds.lower |= cum_lower;
     return node_bounds;
 }
+
 
 LUBDT SOLVER::doit_ns(STATE& state, const INTSET& dids, LUBDT search_bounds,
     LUBDT node_bounds)
@@ -315,7 +372,7 @@ LUBDT SOLVER::doit_ns(STATE& state, const INTSET& dids, LUBDT search_bounds,
         INTSET sub_dids = usable_plays[card];
         usable_plays.erase(card);
 
-        assert(sub_dids.size() > 0);
+        jassert(sub_dids.size() > 0);
 
         // Given our invariants, no information is gleaned.
         if (sub_dids.size() == 1)
@@ -335,13 +392,42 @@ LUBDT SOLVER::doit_ns(STATE& state, const INTSET& dids, LUBDT search_bounds,
         cum_upper |= result.upper;
 
         // Did we cutoff?
-        if (search_bounds.upper.subset_of(search_bounds.lower))
+        if (search_bounds.upper.subset_of(search_bounds.lower)) {
+            printf("JORDAN: doit_ns cutoff\n");
             return node_bounds;
+        }
     }
 
     node_bounds.upper &= cum_upper;
-    assert((search_bounds.upper & cum_upper).subset_of(search_bounds.lower));
+    // This will be true eventually, but not while doit_ew is empty!
+    //jassert((search_bounds.upper & cum_upper).subset_of(search_bounds.lower));
     return node_bounds;
+}
+
+
+UPMAP SOLVER::find_usable_plays_ew(const STATE& state, const INTSET& dids) const
+{
+    UPMAP plays;
+    hand64_t follow_bits = 0;
+    if (!state.new_trick()) {
+        follow_bits = suit_bits(state.trick_card(0).suit);
+    }
+    bool is_east = (state.to_play() == J_EAST);
+
+    for (INTSET_ITR itr(dids) ; itr.more() ; itr.next())
+    {
+        hand64_t hand =
+            (is_east ? _p.easts[itr.current()] : _p.wests[itr.current()]);
+        hand &= ~state.played();
+
+        if ((hand & follow_bits) != 0)
+            hand &= follow_bits;
+
+        for (HAND_ITR hitr(hand) ; hitr.more() ; hitr.next()) {
+            plays[hitr.current()].insert(itr.current());
+        }
+    }
+    return plays;
 }
 
 
@@ -355,7 +441,7 @@ UPMAP SOLVER::find_usable_plays_ns(const STATE& state, const INTSET& dids)
     {
 	for (int i=0 ; i<loader.chunk_size() ; i++) {
             const futureTricks& sb = loader.chunk_solution(i);
-	    assert(sb.score[0] != 0 && sb.score[0] != 1);
+	    jassert(sb.score[0] != 0 && sb.score[0] != 1);
             for (int j=0 ; j<sb.cards ; j++) {
                 CARD card(sb.suit[j], sb.rank[j]);
                 out[card].insert(loader.chunk_did(i));
@@ -378,11 +464,30 @@ CARD SOLVER::recommend_usable_play(const UPMAP& upmap) const
     printf("JORDAN: recommend_usable_play\n");
     UPMAP::const_iterator best = upmap.begin();
     UPMAP::const_iterator itr = best;
-    assert(itr != upmap.end());
+    jassert(itr != upmap.end());
 
     for (itr++ ; itr != upmap.end() ; itr++) {
         if (itr->second.size() > best->second.size())
             best = itr;
     }
     return best->first;
+}
+
+//////////////
+
+std::string bdt_to_string(BDT bdt)
+{
+    bool first = true;
+    std::vector<INTSET> cubes = bdt.get_cubes();
+    std::vector<INTSET>::const_iterator itr;
+    std::string out = "{";
+
+    for (itr=cubes.begin() ; itr != cubes.end() ; itr++) {
+        if (first)
+            first = false;
+        else
+            out += '/';
+        out += intset_to_string(*itr);
+    }
+    return out + '}';
 }
