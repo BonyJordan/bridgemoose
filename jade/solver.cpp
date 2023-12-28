@@ -83,8 +83,8 @@ class DDS_LOADER
     }
 
   public:
-    DDS_LOADER(const PROBLEM& problem, const STATE &state, const INTSET& dids,
-        int mode, int solutions)
+    DDS_LOADER(const PROBLEM& problem, const STATE &state,
+	const INTSET& dids, int mode, int solutions)
         :
         _problem(problem),_state(state),_itr(dids),
         _mode(mode),_solutions(solutions)
@@ -170,6 +170,9 @@ SOLVER::SOLVER(const PROBLEM& problem)
     jassert(_p.wests.size() == _p.easts.size());
     _all_dids = INTSET::full_set((int)_p.wests.size());
     _all_cube = set_to_cube(_all_dids);
+#define A(x)	_ ## x = 0;
+    SOLVER_STATS(A)
+#undef A
 }
 
 
@@ -216,6 +219,12 @@ void SOLVER::eval_1(const std::vector<CARD>& plays_so_far, STATE& state,
 		}
 		if (found)
 		    good_dids.insert(itr.current());
+		else {
+		    printf("JORDAN: dropping (%d) %s::%s as inconsistent\n",
+			itr.current(),
+			hand_to_string(_p.wests[itr.current()]).c_str(),
+			hand_to_string(_p.easts[itr.current()]).c_str());
+		}
 	    }
 	    dids = good_dids;
 	} else if (state.to_play() == J_NORTH) {

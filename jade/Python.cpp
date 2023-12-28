@@ -193,9 +193,9 @@ Solver_init(Solver_Object* self, PyObject* args, PyObject* kwds)
     PyObject* south_obj = NULL;
     int trump_char = 0;
     int target = 0;
-    PyObject* ew_obj = NULL;
+    PyObject* we_obj = NULL;
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOCiO", (char**)keywords,
-	&north_obj, &south_obj, &trump_char, &target, &ew_obj))
+	&north_obj, &south_obj, &trump_char, &target, &we_obj))
     {
 	return -1;
     }
@@ -226,7 +226,7 @@ Solver_init(Solver_Object* self, PyObject* args, PyObject* kwds)
     std::vector<hand64_t> easts;
     std::vector<hand64_t> wests;
 
-    PyObject* iter = PyObject_GetIter(ew_obj);
+    PyObject* iter = PyObject_GetIter(we_obj);
     if (iter == NULL) {
 	return -1;
     }
@@ -239,7 +239,7 @@ Solver_init(Solver_Object* self, PyObject* args, PyObject* kwds)
 	PyObject* eobj;
 	PyObject* wobj;
 
-	if (!PyArg_ParseTuple(tuple, "OO", &eobj, &wobj))
+	if (!PyArg_ParseTuple(tuple, "OO", &wobj, &eobj))
 	    return -1;
 
 	hand64_t whand, ehand;
@@ -357,7 +357,7 @@ Solver_eval(PyObject* self, PyObject* args)
 
 
 static PyMethodDef Solver_RegularMethods[] = {
-    { "eval", Solver_eval, METH_VARARGS, "Return a JBDD encoding the existence of play lines which cover various subsets of east/west possibilities" },
+    { "eval", Solver_eval, METH_VARARGS, "Return a JBDD encoding the existence of play lines which cover various subsets of west/east possibilities" },
     { NULL, NULL, 0,  NULL },
 };
 

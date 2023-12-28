@@ -22,6 +22,9 @@ struct PROBLEM
     std::vector<hand64_t> easts;
 };
 
+#define SOLVER_STATS(A) \
+	A(cache_size)
+
 
 class SOLVER
 {
@@ -33,6 +36,12 @@ class SOLVER
     INTSET	_all_dids;
     BDT         _all_cube;
     TTMAP       _tt;
+
+    // stats
+#define A(x)	unsigned long _ ## x;
+SOLVER_STATS(A)
+#undef A
+
   
     // Internal Functions
     LUBDT doit(STATE& state, const INTSET& dids, LUBDT search_bounds);
