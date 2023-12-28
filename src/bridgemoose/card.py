@@ -9,7 +9,7 @@ class Card(collections.namedtuple("Card", "suit rank")):
 
     @staticmethod
     def rank_order(r):
-        return RANK_ORDER[r]
+        return Card.RANK_ORDER[r]
 
     @staticmethod
     def all():
