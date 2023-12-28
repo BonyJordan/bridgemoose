@@ -126,6 +126,22 @@ static void suit_rank_str(int suit, int rank, char* card)
 	card[1] = RANKS[rank-2];
 }
 
+static void
+set_win_rank_string(char wr_string[5], const int winRanks[4]) {
+    for (int suit=0 ; suit<4 ; suit++) {
+	int wr = winRanks[3-suit] | 0x8000;
+	int rank;
+	for (rank=0 ; rank<13 ; rank++)
+	    if (wr & (8<<rank))
+		break;
+	if (rank < 13)
+	    wr_string[suit] = RANKS[rank];
+	else
+	    wr_string[suit] = '?';
+    }
+    wr_string[4] = '\0';
+}
+
 
 struct CurrentTrick {
     int suit[3];
@@ -424,8 +440,9 @@ dds_solve_many_plays(PyObject* self, PyObject* args)
     const char* play_dir;
     const char* strain;
     const char* trick_so_far;
-    if (!PyArg_ParseTuple(args, "Osss", &py_list, &play_dir, &strain,
-        &trick_so_far))
+    int want_win_ranks = 0;
+    if (!PyArg_ParseTuple(args, "Osss|p", &py_list, &play_dir, &strain,
+        &trick_so_far, &want_win_ranks))
     {
         return NULL;
     }
@@ -490,10 +507,15 @@ dds_solve_many_plays(PyObject* self, PyObject* args)
 	    int ci = 0;
 	    for (int cc=0 ; cc<num_card_classes ; cc++) {
 		char card[3];
+		char wr_string[5];
 		suit_rank_str(sb.solvedBoard[i].suit[cc],
 		    sb.solvedBoard[i].rank[cc], card);
 		int tricks = sb.solvedBoard[i].score[cc];
-		PyObject* py_score = Py_BuildValue("si", card, tricks);
+		if (want_win_ranks)
+		    set_win_rank_string(wr_string, sb.solvedBoard[i].winRanks[cc]);
+		PyObject* py_score = want_win_ranks ?
+		    Py_BuildValue("sis", card, tricks, wr_string) :
+		    Py_BuildValue("si", card, tricks);
 		if (py_score == NULL) {
 		    Py_DECREF(board_list);
 		    Py_DECREF(py_iter);
@@ -507,7 +529,9 @@ dds_solve_many_plays(PyObject* self, PyObject* args)
 		for (int r=0 ; r<13 ; r++) {
 		    if ((4<<r) & sb.solvedBoard[i].equals[cc]) {
 			suit_rank_str(sb.solvedBoard[i].suit[cc], r+2, card);
-			py_score = Py_BuildValue("si", card, tricks);
+			py_score = want_win_ranks ?
+			    Py_BuildValue("sis", card, tricks, wr_string) :
+			    Py_BuildValue("si", card, tricks);
 			if (py_score == NULL) {
 			    Py_DECREF(board_list);
 			    Py_DECREF(py_iter);
@@ -756,15 +780,19 @@ const char* solve_many_deals_desc =
 
 const char* solve_many_plays_desc =
 "Solve many plays\n"
-"Takes four paramters:\n"
+"Takes four or five paramters:\n"
 "   1. A list of 4-tuples, where each item is a (partial) hand in string\n"
 "      format, starting with West.\n"
 "   2. The direction of the player on play ('W','N','E', or 'S')\n"
 "   3. Strain ('C','D','H','S', or 'N')\n"
 "   4. Trick so far; a string like 'C5CT' of up to 3 cards\n"
+"   5. (optional) True if win ranks are requested.\n"
 "Output is a list (one per deal) of a list (one per card) of 2-tuples\n"
 "   in (card, tricks) format, such as ('C5', 3)\n"
-"   tricks are counted from the PoV of the player on play\n";
+"   tricks are counted from the PoV of the player on play\n"
+"   If win ranks are requested, the tuples are (card, tricks, string)\n"
+"   Where string returns one below the lowest win rank for each suit\n"
+"   In SHDC order.  If there are no win ranks, 'A' is returned.\n";
 
 const char* analyze_deal_play_desc =
 "Analayze plays from a single deal\n"
