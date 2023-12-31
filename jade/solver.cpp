@@ -26,6 +26,7 @@ class DDS_LOADER
         }
 
         int r = SolveAllBoardsBin(&_bo, &_solved);
+
         if (r < 0) {
             char line[80];
             ErrorMessage(r, line);
@@ -51,6 +52,8 @@ class DDS_LOADER
         {
             if (!_itr.more() || k == MAXNOOFBOARDS) {
                 _bo.noOfBoards = k;
+		if (k > 0)
+		    jassert(_bo.deals[k-1].first >= 0 && _bo.deals[k-1].first <= 3);
                 solve_some();
                 return;
             }
@@ -73,6 +76,7 @@ class DDS_LOADER
                 _bo.deals[k]);
 
             _bo.deals[k].first = _state.trick_leader();
+	    jassert(_bo.deals[k].first >= 0 && _bo.deals[k].first <= 3);
             _bo.mode[k] = _mode;
             _bo.solutions[k] = _solutions;
             _bo.target[k] = target;
@@ -188,6 +192,7 @@ BDT SOLVER::eval(const std::vector<CARD> plays_so_far)
 
     eval_1(plays_so_far, state, dids);
     eval_2(state, dids);
+
     return eval(state, dids);
 }
 
@@ -220,7 +225,7 @@ void SOLVER::eval_1(const std::vector<CARD>& plays_so_far, STATE& state,
 		if (found)
 		    good_dids.insert(itr.current());
 		else {
-		    printf("JORDAN: dropping (%d) %s::%s as inconsistent\n",
+		    printf("WARN: dropping (%d) %s::%s as inconsistent\n",
 			itr.current(),
 			hand_to_string(_p.wests[itr.current()]).c_str(),
 			hand_to_string(_p.easts[itr.current()]).c_str());
@@ -254,11 +259,21 @@ void SOLVER::eval_2(STATE& state, INTSET& dids)
     // solutions 1: find any card which succeeds
 
     DDS_LOADER loader(_p, state, dids, 1, 1);
+    _dds_calls++;
+    _dds_boards += dids.size();
+    track_dds(state, dids);
     for ( ; loader.more() ; loader.next())
     {
 	for (int i=0 ; i<loader.chunk_size() ; i++) {
 	    int score = loader.chunk_solution(i).score[0];
-	    if (score <= 0) {
+	    if (state.to_play_ns() && score <= 0) {
+		printf("WARN: removing did %d for failure to win\n",
+		    loader.chunk_did(i));
+		dids.remove(loader.chunk_did(i));
+	    }
+	    if (state.to_play_ew() && score > 0) {
+		printf("WARN: removing did %d for failure to win\n",
+		    loader.chunk_did(i));
 		dids.remove(loader.chunk_did(i));
 	    }
 	}
@@ -276,6 +291,8 @@ BDT SOLVER::eval(STATE& state, const INTSET& dids)
 
 LUBDT SOLVER::doit(STATE& state, const INTSET& dids, LUBDT search_bounds)
 {
+    _node_visits++;
+    
     if (state.ns_tricks() >= _p.target) {
 	BDT cube = set_to_cube(dids);
 	return LUBDT(cube, cube);
@@ -292,7 +309,10 @@ LUBDT SOLVER::doit(STATE& state, const INTSET& dids, LUBDT search_bounds)
         TTMAP::iterator f = _tt.find(state_key);
         if (f != _tt.end()) {
             node_bounds = f->second;
-        }
+	    _cache_hits++;
+        } else {
+	    _cache_misses++;
+	}
     }
 
     INTSET node_dids = node_bounds.lower.get_used_vars();
@@ -315,6 +335,9 @@ LUBDT SOLVER::doit(STATE& state, const INTSET& dids, LUBDT search_bounds)
         out = doit_ns(state, dids, search_bounds, node_bounds);
 
     if (new_trick) {
+	if (_tt.find(state_key) == _tt.end())
+	    _cache_size++;
+
         _tt[state_key] = out;
     }
     return out;
@@ -437,15 +460,17 @@ UPMAP SOLVER::find_usable_plays_ew(const STATE& state, const INTSET& dids) const
 
 
 UPMAP SOLVER::find_usable_plays_ns(const STATE& state, const INTSET& dids)
-    const
 {
     UPMAP out;
     DDS_LOADER loader(_p, state, dids, 0, 2);
+    _dds_calls++;
+    _dds_boards += dids.size();
+    track_dds(state, dids);
     for ( ; loader.more() ; loader.next())
     {
 	for (int i=0 ; i<loader.chunk_size() ; i++) {
             const futureTricks& sb = loader.chunk_solution(i);
-	    jassert(sb.score[0] != 0 && sb.score[0] != 1);
+	    jassert(sb.score[0] != 0 && sb.score[0] != -1);
             for (int j=0 ; j<sb.cards ; j++) {
                 CARD card(sb.suit[j], sb.rank[j]);
                 out[card].insert(loader.chunk_did(i));
@@ -469,6 +494,46 @@ CARD SOLVER::recommend_usable_play(const UPMAP& upmap) const
     }
     return best->first;
 }
+
+std::map<std::string, stat_t> SOLVER::get_stats() const
+{
+    std::map<std::string, stat_t> out;
+#define A(x)	out[# x] = _ ## x;
+    SOLVER_STATS(A)
+#undef A 
+
+    size_t bdt_sizes[BDT::MAP_NUM];
+    BDT::get_map_sizes(bdt_sizes);
+
+    size_t i=0;
+    out["bdt_nodes"] = bdt_sizes[i++];
+    out["bdt_union_map"] = bdt_sizes[i++];
+    out["bdt_intersect_map"] = bdt_sizes[i++];
+    out["bdt_extrude_map"] = bdt_sizes[i++];
+    out["bdt_remove_map"] = bdt_sizes[i++];
+    out["bdt_require_map"] = bdt_sizes[i++];
+    assert(i == BDT::MAP_NUM);
+
+    return out;
+}
+
+void SOLVER::track_dds(const STATE& state, const INTSET& dids)
+{
+    DDS_CALL dc;
+    dc.key = state.to_key();
+    for (int i=0 ; i<3 ; i++)
+	dc.trick_card[i] = state.trick_card(i);
+
+    for (INTSET_ITR itr(dids) ; itr.more() ; itr.next()) {
+	dc.did = itr.current();
+	if (_dds_tracker.find(dc) != _dds_tracker.end()) {
+	    _dds_repeats++;
+	} else {
+	    _dds_tracker.insert(dc);
+	}
+    }
+}
+
 
 //////////////
 

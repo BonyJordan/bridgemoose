@@ -356,8 +356,39 @@ Solver_eval(PyObject* self, PyObject* args)
 }
 
 
+static PyObject*
+Solver_stats(PyObject* self, PyObject* args)
+{
+    Solver_Object* so = (Solver_Object*)self;
+    if (!PyArg_ParseTuple(args, ""))
+	return NULL;
+
+    PyObject* out = PyDict_New();
+    if (out == NULL)
+	return NULL;
+
+    std::map<std::string, stat_t> stats = so->solver->get_stats();
+    std::map<std::string, stat_t>::const_iterator itr;
+    for (itr = stats.begin() ; itr != stats.end() ; itr++) {
+	PyObject* count = PyLong_FromUnsignedLong(itr->second);
+	if (count == NULL) {
+	    Py_DECREF(out);
+	    return NULL;
+	}
+	if (PyDict_SetItemString(out, itr->first.c_str(), count) < 0) {
+	    Py_DECREF(count);
+	    Py_DECREF(out);
+	    return NULL;
+	}
+	Py_DECREF(count);
+    }
+    return out;
+}
+
+
 static PyMethodDef Solver_RegularMethods[] = {
     { "eval", Solver_eval, METH_VARARGS, "Return a JBDD encoding the existence of play lines which cover various subsets of west/east possibilities" },
+    { "stats", Solver_stats, METH_VARARGS, "Return a dict of statistics" },
     { NULL, NULL, 0,  NULL },
 };
 

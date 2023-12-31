@@ -8,6 +8,31 @@
 #include "lubdt.h"
 #include "state.h"
 
+#include <set>
+struct DDS_CALL {
+    int	     did;
+    hand64_t key;
+    CARD     trick_card[3];
+
+    bool operator==(const DDS_CALL& other) const {
+	return compare(*this, other) == 0;
+    }
+    bool operator<(const DDS_CALL& other) const {
+	return compare(*this, other) < 0;
+    }
+    static int compare(const DDS_CALL& a, const DDS_CALL& b) {
+#define CMP(x)   if (a.x<b.x) return -1; else if (a.x>b.x) return 1;
+	CMP(did);
+	CMP(key);
+	CMP(trick_card[0]);
+	CMP(trick_card[1]);
+	CMP(trick_card[2]);
+	return 0;
+#undef CMP
+    }
+};
+
+
 typedef std::map<hand64_t, LUBDT> TTMAP;
 typedef std::map<CARD, INTSET>    UPMAP;
 
@@ -22,8 +47,16 @@ struct PROBLEM
     std::vector<hand64_t> easts;
 };
 
+typedef unsigned long stat_t;
+
 #define SOLVER_STATS(A) \
-	A(cache_size)
+	A(cache_hits)	\
+	A(cache_misses)	\
+	A(cache_size)	\
+	A(dds_calls)	\
+	A(dds_boards)	\
+	A(dds_repeats)	\
+	A(node_visits)
 
 
 class SOLVER
@@ -38,10 +71,10 @@ class SOLVER
     TTMAP       _tt;
 
     // stats
-#define A(x)	unsigned long _ ## x;
+#define A(x)	stat_t _ ## x;
 SOLVER_STATS(A)
 #undef A
-
+    std::set<DDS_CALL>	_dds_tracker;
   
     // Internal Functions
     LUBDT doit(STATE& state, const INTSET& dids, LUBDT search_bounds);
@@ -52,8 +85,10 @@ SOLVER_STATS(A)
     void eval_2(STATE& state, INTSET& dids);
 
     UPMAP find_usable_plays_ew(const STATE& state, const INTSET& dids) const;
-    UPMAP find_usable_plays_ns(const STATE& state, const INTSET& dids) const;
+    UPMAP find_usable_plays_ns(const STATE& state, const INTSET& dids);
     CARD recommend_usable_play(const UPMAP& upmap) const;
+
+    void track_dds(const STATE& state, const INTSET& dids);
 
   public:
     // public interface
@@ -71,6 +106,8 @@ SOLVER_STATS(A)
     hand64_t south() const { return _p.south; }
     int trump() const { return _p.trump; }
     int target() const { return _p.target; }
+
+    std::map<std::string, stat_t> get_stats() const;
 };
 
 std::string bdt_to_string(BDT bdt);

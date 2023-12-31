@@ -59,7 +59,7 @@ with the following useful analytics defined:
 
     def init_for_iterable(self, cards):
         raw_by_suit = {suit:"" for suit in Card.SUITS}
-        self.cards = set(Card(c) for c in cards)
+        self.cards = frozenset(Card(c) for c in cards)
         self.hcp = 0
         self.rp = 0
         self.control_points = 0
@@ -125,6 +125,12 @@ with the following useful analytics defined:
             return void_symbol
         else:
             return b
+
+    def __eq__(self, other):
+        return self.cards == other.cards
+
+    def __hash__(self):
+        return hash(self.cards)
 
     def __str__(self):
         return "/".join([self.str_for_suit(s) for s in "SHDC"])
@@ -258,6 +264,14 @@ class Deal:
             raise TypeError("Unhandled index:", index)
 
         return [self.W, self.N, self.E, self.S][index]
+
+    def __eq__(self, other):
+        if not isinstance(other, Deal):
+            return False
+        return all(self[d] == other[d] for d in Direction.ALL)
+
+    def __hash__(self):
+        return hash((self.W, self.N, self.E, self.S))
 
 
 __all__ = ["Deal", "Hand",
