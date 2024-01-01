@@ -417,7 +417,7 @@ load_boards_pbn(PyObject* py_iter, struct boardsPBN& boards,
 
         boards.target[num_deals] = -1;
         boards.solutions[num_deals] = 3;
-        boards.mode[num_deals] = 0;
+        boards.mode[num_deals] = 1;
 
         num_deals += 1;
         Py_DECREF(py_deal);
