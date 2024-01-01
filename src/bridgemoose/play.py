@@ -146,14 +146,19 @@ class PlayView:
 
     def legal_plays(self):
         my_hand = self.hands_left[self.next_play.i]
+        return self.hand_legal_plays(my_hand)
 
+    def hand_legal_plays(self, hand):
+        if isinstance(hand, Hand):
+            hand = PartialHand(hand) - self.hands_played[self.next_play.i]
         if len(self.current_trick) > 0:
             led_suit = self.current_trick[0].suit
-            same_suit = my_hand.by_suit[led_suit]
+            same_suit = hand.by_suit[led_suit]
             if same_suit:
                 return list(same_suit)
 
-        return list(my_hand.cards)
+        return list(hand.cards)
+
 
     def finish_trick(self):
         assert len(self.current_trick) == 4
