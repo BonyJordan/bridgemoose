@@ -1,6 +1,7 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include <inttypes.h>
+#include "ansolver.h"
 #include "solver.h"
 
 
@@ -122,6 +123,12 @@ typedef struct {
     PROBLEM problem;
 } Solver_Object;
 
+typedef struct {
+    PyObject_HEAD
+    ANSOLVER* ansolver;
+    PROBLEM problem;
+} ANSolver_Object;
+
 
 static PyObject*
 bdt_to_py_list_of_cubes(BDT bdt)
@@ -166,6 +173,16 @@ Solver_new(PyTypeObject* type, PyObject* args, PyObject* kwds)
     return (PyObject*) self;
 }
 
+static PyObject*
+ANSolver_new(PyTypeObject* type, PyObject* args, PyObject* kwds)
+{
+    ANSolver_Object* self = (ANSolver_Object*) type->tp_alloc(type, 0);
+    if (self != NULL) {
+	self->ansolver = NULL;
+    }
+    return (PyObject*) self;
+}
+
 
 static void
 Solver_dealloc(Solver_Object* self)
@@ -177,9 +194,19 @@ Solver_dealloc(Solver_Object* self)
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
+static void
+ANSolver_dealloc(ANSolver_Object* self)
+{
+    if (self->ansolver != NULL) {
+	delete self->ansolver;
+	self->ansolver = NULL;
+    }
+    Py_TYPE(self)->tp_free((PyObject*)self);
+}
+
 
 static int
-Solver_init(Solver_Object* self, PyObject* args, PyObject* kwds)
+pyargs_to_problem(PROBLEM& problem, PyObject* args, PyObject* kwds)
 {
     const char* keywords[] = {
 	"north",
@@ -283,29 +310,48 @@ Solver_init(Solver_Object* self, PyObject* args, PyObject* kwds)
 	easts.push_back(ehand);
     }
 
-    self->problem.north = north;
-    self->problem.south = south;
-    self->problem.trump = trump;
-    self->problem.target = target;
-    self->problem.wests = wests;
-    self->problem.easts = easts;
+    problem.north = north;
+    problem.south = south;
+    problem.trump = trump;
+    problem.target = target;
+    problem.wests = wests;
+    problem.easts = easts;
+    return 0;
+}
+
+
+static int
+Solver_init(Solver_Object* self, PyObject* args, PyObject* kwds)
+{
+    if (pyargs_to_problem(self->problem, args, kwds) < 0)
+	return -1;
+
     self->solver = new SOLVER(self->problem);
     return 0;
 }
 
 
-static PyObject*
-Solver_eval(PyObject* self, PyObject* args)
+static int
+ANSolver_init(ANSolver_Object* self, PyObject* args, PyObject* kwds)
 {
-    Solver_Object* so = (Solver_Object*)self;
+    if (pyargs_to_problem(self->problem, args, kwds) < 0)
+	return -1;
+
+    self->ansolver = new ANSOLVER(self->problem);
+    return 0;
+}
+
+
+static bool
+pyargs_to_cardlist(std::vector<CARD>& plays, PyObject* args)
+{
     PyObject* play_list = NULL;
     if (!PyArg_ParseTuple(args, "O", &play_list))
-	return NULL;
+	return false;
 
-    std::vector<CARD> plays;
     PyObject* iter = PyObject_GetIter(play_list);
     if (iter == NULL)
-	return NULL;
+	return false;
 
     for (int i=0 ; ; i++)
     {
@@ -316,34 +362,37 @@ Solver_eval(PyObject* self, PyObject* args)
 	PyObject* py_str = PyObject_Str(py_card);
 	if (py_str == NULL) {
 	    Py_DECREF(iter);
-	    return NULL;
+	    return false;
 	}
 	const char* card_str = PyUnicode_AsUTF8(py_str);
 	if (card_str == NULL) {
 	    Py_DECREF(py_str);
 	    Py_DECREF(iter);
-	    return NULL;
+	    return false;
 	}
 
 	if (!card_str[0] || !card_str[1]) {
 	    Py_DECREF(py_str);
 	    Py_DECREF(iter);
-	    return PyErr_Format(PyExc_ValueError, "Malformed Card index %d", i);
+	    PyErr_Format(PyExc_ValueError, "Malformed Card index %d", i);
+	    return false;
 	}
 	    
 	int suit_i = char_to_suit(card_str[0]);
 	if (suit_i < 0) {
 	    Py_DECREF(py_str);
 	    Py_DECREF(iter);
-	    return PyErr_Format(PyExc_ValueError, "Bad suit '%c' at index %d",
+	    PyErr_Format(PyExc_ValueError, "Bad suit '%c' at index %d",
 		card_str[0], i);
+	    return false;
 	}
 	int rank_i = char_to_rank(card_str[1]);
 	if (rank_i < 0) {
 	    Py_DECREF(py_str);
 	    Py_DECREF(iter);
-	    return PyErr_Format(PyExc_ValueError, "Bad rank '%c' at index %d",
+	    PyErr_Format(PyExc_ValueError, "Bad rank '%c' at index %d",
 		card_str[1], i);
+	    return false;
 	}
 
 	plays.push_back(CARD(suit_i, 2+rank_i));
@@ -351,8 +400,33 @@ Solver_eval(PyObject* self, PyObject* args)
     }
     Py_DECREF(iter);
 
+    return true;
+}
+
+
+static PyObject*
+Solver_eval(PyObject* self, PyObject* args)
+{
+    std::vector<CARD> plays;
+    if (!pyargs_to_cardlist(plays, args))
+	return NULL;
+
+    Solver_Object* so = (Solver_Object*)self;
     BDT out = so->solver->eval(plays);
     return bdt_to_py_list_of_cubes(out);
+}
+
+
+static PyObject*
+ANSolver_eval(PyObject* self, PyObject* args)
+{
+    std::vector<CARD> plays;
+    if (!pyargs_to_cardlist(plays, args))
+	return NULL;
+
+    ANSolver_Object* so = (ANSolver_Object*)self;
+    bool out = so->ansolver->eval(plays);
+    return PyBool_FromLong(out);
 }
 
 
@@ -392,6 +466,11 @@ static PyMethodDef Solver_RegularMethods[] = {
     { NULL, NULL, 0,  NULL },
 };
 
+static PyMethodDef ANSolver_RegularMethods[] = {
+    { "eval", ANSolver_eval, METH_VARARGS, "Compute the existence of a play line which covers all west/east possibilities" },
+    { NULL, NULL, 0,  NULL },
+};
+
 
 static PyTypeObject Solver_Type = {
     PyVarObject_HEAD_INIT(NULL, 0)
@@ -404,6 +483,19 @@ static PyTypeObject Solver_Type = {
     .tp_init = (initproc) Solver_init,
     .tp_new = Solver_new,
     .tp_dealloc = (destructor)Solver_dealloc,
+};
+
+static PyTypeObject ANSolver_Type = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    .tp_name = "bridgemoose.jade.ANSolver",
+    .tp_basicsize = sizeof(ANSolver_Object),
+    .tp_itemsize = 0,
+    .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_doc = PyDoc_STR("Jordan's Amazing Declarer Evaluater - All-or-None Solver Object"),
+    .tp_methods = ANSolver_RegularMethods,
+    .tp_init = (initproc) ANSolver_init,
+    .tp_new = ANSolver_new,
+    .tp_dealloc = (destructor)ANSolver_dealloc,
 };
 
 static PyModuleDef jade_module = {
@@ -442,6 +534,8 @@ PyInit_jade(void)
 
     if (PyType_Ready(&Solver_Type) < 0)
 	goto fie;
+    if (PyType_Ready(&ANSolver_Type) < 0)
+	goto fie;
 
     mod = PyModule_Create(&jade_module);
     if (mod == NULL)
@@ -450,6 +544,11 @@ PyInit_jade(void)
     Py_INCREF(&Solver_Type);
     if (PyModule_AddObject(mod, "Solver", (PyObject*)&Solver_Type) < 0) {
 	Py_DECREF(&Solver_Type);
+	goto fie;
+    }
+    Py_INCREF(&ANSolver_Type);
+    if (PyModule_AddObject(mod, "ANSolver", (PyObject*)&ANSolver_Type) < 0) {
+	Py_DECREF(&ANSolver_Type);
 	goto fie;
     }
 
