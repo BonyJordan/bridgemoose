@@ -336,17 +336,14 @@ std::map<std::string, stat_t> SOLVER::get_stats() const
 
 void SOLVER::track_dds(const STATE& state, const INTSET& dids)
 {
-    DDS_CALL dc;
-    dc.key = state.to_key();
-    for (int i=0 ; i<3 ; i++)
-	dc.trick_card[i] = state.trick_card(i);
+    DDS_KEY dk = DDS_KEY::from_state(state);
 
     for (INTSET_ITR itr(dids) ; itr.more() ; itr.next()) {
-	dc.did = itr.current();
-	if (_dds_tracker.find(dc) != _dds_tracker.end()) {
+	dk.did = itr.current();
+	if (_dds_tracker.find(dk) != _dds_tracker.end()) {
 	    _dds_repeats++;
 	} else {
-	    _dds_tracker.insert(dc);
+	    _dds_tracker.insert(dk);
 	}
     }
 }

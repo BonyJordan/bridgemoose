@@ -5,6 +5,7 @@
 #include "cards.h"
 #include "lubdt.h"
 #include "solutil.h"
+#include "ddscache.h"
 
 typedef std::map<hand64_t, LUBDT> TTMAP;
 
@@ -15,6 +16,7 @@ class ANSOLVER
     const PROBLEM& _p;
 
     // helper info
+    DDS_CACHE	_dds_cache;
     INTSET	_all_dids;
     BDT         _all_cube;
     TTMAP       _tt;
@@ -25,9 +27,7 @@ class ANSOLVER
     std::vector<CARD> find_usable_plays_ns(const STATE& state,
 	const INTSET& dids);
 
-    void eval_1(const std::vector<CARD>& plays_so_far, STATE& state,
-	INTSET& dids);
-    bool eval_2(const STATE& state, const INTSET& dids);
+    bool all_can_win(const STATE& state, const INTSET& dids);
 
   public:
     ANSOLVER(const PROBLEM& p);
@@ -35,6 +35,7 @@ class ANSOLVER
 
     bool eval(STATE& state, const INTSET& dids);
     bool eval(const std::vector<CARD>& plays_so_far);
+    bool eval(const std::vector<CARD>& plays_so_far, const INTSET& dids);
 
     const PROBLEM& problem() const { return _p; }
 };

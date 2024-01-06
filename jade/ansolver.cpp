@@ -3,7 +3,7 @@
 
 
 ANSOLVER::ANSOLVER(const PROBLEM& problem) :
-    _p(problem)
+    _p(problem),_dds_cache(problem)
 {
     jassert(_p.wests.size() == _p.easts.size());
     _all_dids = INTSET::full_set((int)_p.wests.size());
@@ -16,21 +16,38 @@ ANSOLVER::~ANSOLVER()
 }
 
 
+bool ANSOLVER::eval(const std::vector<CARD>& plays_so_far, const INTSET& dids)
+{
+    std::pair<STATE, INTSET> sd = load_from_history(_p, plays_so_far, dids);
+    if (!all_can_win(sd.first, sd.second))
+	return false;
+    return eval(sd.first, sd.second);
+}
+
+
 bool ANSOLVER::eval(const std::vector<CARD>& plays_so_far)
 {
     std::pair<STATE, INTSET> sd = load_from_history(_p, plays_so_far);
-    DDS_LOADER loader(_p, sd.first, sd.second, 1, 1);
+    if (!all_can_win(sd.first, sd.second))
+	return false;
+    return eval(sd.first, sd.second);
+}
+
+
+bool ANSOLVER::all_can_win(const STATE& state, const INTSET& dids)
+{
+    DDS_LOADER loader(_p, state, dids, 1, 1);
     for ( ; loader.more() ; loader.next())
     {
 	for (int i=0 ; i<loader.chunk_size() ; i++) {
 	    int score = loader.chunk_solution(i).score[0];
-	    if (sd.first.to_play_ns() && score <= 0)
+	    if (state.to_play_ns() && score <= 0)
 		return false;
-	    if (sd.first.to_play_ew() && score > 0)
+	    if (state.to_play_ew() && score > 0)
 		return false;
 	}
     }
-    return eval(sd.first, sd.second);
+    return true;
 }
 
 
@@ -134,42 +151,19 @@ bool ANSOLVER::doit_ns(STATE& state, const INTSET& dids)
 std::vector<CARD> ANSOLVER::find_usable_plays_ns(const STATE& state,
     const INTSET& dids)
 {
-    const bool debug = false;
-    DDS_LOADER loader(_p, state, dids, 1, 2);
+    std::map<int, hand64_t> dds_wins = _dds_cache.solve_many(state, dids);
+    std::map<int, hand64_t>::const_iterator itr;
     std::map<CARD, size_t> counts;
 
-    for ( ; loader.more() ; loader.next())
-    {
-	for (int i=0 ; i<loader.chunk_size() ; i++) {
-	    const futureTricks& sb = loader.chunk_solution(i);
-	    for (int j=0 ; j<sb.cards ; j++) {
-		CARD card(sb.suit[j], sb.rank[j]);
-		jassert(sb.score[j] != -2);
-		jassert(sb.score[j] != 0 && sb.score[j] != -1);
-		if (counts.find(card) != counts.end())
-		    counts[card] += 1;
-		else
-		    counts[card] = 1;
-	    }
-	}
-    }
+    hand64_t all = ALL_CARDS_BITS;
+    for (itr = dds_wins.begin() ; itr != dds_wins.end() ; itr++)
+	all &= itr->second;
 
     std::vector<CARD> out;
-    std::map<CARD,size_t>::const_iterator itr;
-    for (itr = counts.begin() ; itr != counts.end() ; itr++)
-    {
-	if (itr->second == dids.size()) {
-	    if (debug) {
-		printf("ANSOLVER::find_usable_plays_ns sending back %s\n",
-		    card_to_string(itr->first).c_str());
-	    }
-	    out.push_back(itr->first);
-	} else {
-	    if (debug) {
-		printf("ANSOLVER::find_usable_plays_ns rejecting %s (%d)\n",
-		    card_to_string(itr->first).c_str(), itr->second);
-	    }
-	}
+    while (all) {
+	hand64_t bit = all & -all;
+	out.push_back(handbit_to_card(bit));
+	all &= ~bit;
     }
     return out;
 }

@@ -343,17 +343,32 @@ ANSolver_init(ANSolver_Object* self, PyObject* args, PyObject* kwds)
 
 
 static bool
-pyargs_to_cardlist(std::vector<CARD>& plays, PyObject* args)
+pylist_to_intlist(INTSET& intlist, PyObject* pylist)
 {
-    PyObject* play_list = NULL;
-    if (!PyArg_ParseTuple(args, "O", &play_list))
+    PyObject* iter = PyObject_GetIter(pylist);
+    if (iter == NULL)
 	return false;
 
+    PyObject* o;
+    while ((o = PyIter_Next(iter)) != NULL) {
+	long n = PyLong_AsLong(o);
+	if (n == -1 && PyErr_Occurred())
+	    return false;
+	intlist.insert(n);
+    }
+    return true;
+}
+
+
+static bool
+pylist_to_cardlist(std::vector<CARD>& plays, PyObject* play_list)
+{
     PyObject* iter = PyObject_GetIter(play_list);
     if (iter == NULL)
 	return false;
 
     for (int i=0 ; ; i++)
+
     {
 	PyObject* py_card = PyIter_Next(iter);
 	if (py_card == NULL)
@@ -404,6 +419,17 @@ pyargs_to_cardlist(std::vector<CARD>& plays, PyObject* args)
 }
 
 
+static bool
+pyargs_to_cardlist(std::vector<CARD>& plays, PyObject* args)
+{
+    PyObject* play_list = NULL;
+    if (!PyArg_ParseTuple(args, "O", &play_list))
+	return false;
+
+    return pylist_to_cardlist(plays, play_list);
+}
+
+
 static PyObject*
 Solver_eval(PyObject* self, PyObject* args)
 {
@@ -420,13 +446,32 @@ Solver_eval(PyObject* self, PyObject* args)
 static PyObject*
 ANSolver_eval(PyObject* self, PyObject* args)
 {
-    std::vector<CARD> plays;
-    if (!pyargs_to_cardlist(plays, args))
+    ANSolver_Object* so = (ANSolver_Object*)self;
+    PyObject* play_list = NULL;
+    PyObject* did_list = NULL;
+    if (!PyArg_ParseTuple(args, "O|O", &play_list, &did_list))
 	return NULL;
 
-    ANSolver_Object* so = (ANSolver_Object*)self;
-    bool out = so->ansolver->eval(plays);
-    return PyBool_FromLong(out);
+    std::vector<CARD> plays;
+    if (!pylist_to_cardlist(plays, play_list))
+	return NULL;
+
+    if (did_list != NULL) {
+	INTSET dids;
+	if (!pylist_to_intlist(dids, did_list))
+	    return NULL;
+
+	for (INTSET_ITR itr(dids) ; itr.more() ; itr.next()) {
+	    if ((size_t)itr.current() > so->problem.wests.size())
+		return PyErr_Format(PyExc_IndexError, "%d", itr.current());
+	}
+
+	bool out = so->ansolver->eval(plays, dids);
+	return PyBool_FromLong(out);
+    } else {
+	bool out = so->ansolver->eval(plays);
+	return PyBool_FromLong(out);
+    }
 }
 
 

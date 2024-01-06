@@ -156,9 +156,32 @@ C Q53           C KT64
         out += "%s %-13s %s %-13s\n" % (symbol, left.str_for_suit(suit), symbol, right.str_for_suit(suit))
     return out
 
+def fourth_hand(h1, h2, h3):
+    h1 = bm.Hand(h1)
+    h2 = bm.Hand(h2)
+    h3 = bm.Hand(h3)
+    ac = set(Card.all())
+    ac -= h1.cards
+    ac -= h2.cards
+    ac -= h3.cards
+    return bm.Hand(ac)
+
+
 class Deal:
     """ Class representing four bridge hands """
     def __init__(self, W, N, E, S):
+        if nones == 1:
+            if W is None:
+                W = fourth_hand(N,E,S)
+            elif N is None:
+                N = fourth_hand(W,E,S)
+            elif E is None:
+                E = fourth_hand(W,N,S)
+            else:
+                S = fourth_hand(W,N,E) 
+        elif nones != 0:
+            raise ValueError("Too many Nones")
+
         self.W = W
         self.N = N
         self.E = E
@@ -275,4 +298,4 @@ class Deal:
 
 
 __all__ = ["Deal", "Hand",
-    "two_hands_square_string"]
+    "two_hands_square_string", "fourth_hand"]

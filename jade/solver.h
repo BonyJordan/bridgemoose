@@ -9,31 +9,9 @@
 #include "state.h"
 #include "problem.h"
 #include "solutil.h"
+#include "ddscache.h"
 
 #include <set>
-struct DDS_CALL {
-    int	     did;
-    hand64_t key;
-    CARD     trick_card[3];
-
-    bool operator==(const DDS_CALL& other) const {
-	return compare(*this, other) == 0;
-    }
-    bool operator<(const DDS_CALL& other) const {
-	return compare(*this, other) < 0;
-    }
-    static int compare(const DDS_CALL& a, const DDS_CALL& b) {
-#define CMP(x)   if (a.x<b.x) return -1; else if (a.x>b.x) return 1;
-	CMP(did);
-	CMP(key);
-	CMP(trick_card[0]);
-	CMP(trick_card[1]);
-	CMP(trick_card[2]);
-	return 0;
-#undef CMP
-    }
-};
-
 
 typedef std::map<hand64_t, LUBDT> TTMAP;
 
@@ -65,7 +43,7 @@ class SOLVER
 #define A(x)	stat_t _ ## x;
 SOLVER_STATS(A)
 #undef A
-    std::set<DDS_CALL>	_dds_tracker;
+    std::set<DDS_KEY>	_dds_tracker;
   
     // Internal Functions
     LUBDT doit(STATE& state, const INTSET& dids, LUBDT search_bounds);
