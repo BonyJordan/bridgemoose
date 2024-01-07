@@ -98,7 +98,9 @@ int STATE::compute_winner() const
 hand64_t STATE::to_key() const
 {
     hand64_t nst = _ns_tricks;
-    return _played | ((nst & 0xc) << 30) | ((nst & 0x3) << 16) | (_to_play & 0x3);
+    hand64_t or_in = ((nst & 0xc) << 30) | ((nst & 0x3) << 16) | (_to_play & 0x3);
+    // jassert((or_in & _played) == 0);
+    return _played | or_in;
 }
 
 
