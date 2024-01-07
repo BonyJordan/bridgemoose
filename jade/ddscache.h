@@ -1,7 +1,9 @@
 #ifndef _DDSCACHE_H_
 #define _DDSCACHE_H_
 
+#include <map>
 #include "problem.h"
+#include "intset.h"
 
 struct DDS_KEY {
     int	     did;
