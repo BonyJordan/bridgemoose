@@ -8,6 +8,15 @@
 #include "ddscache.h"
 
 typedef std::map<hand64_t, LUBDT> TTMAP;
+typedef unsigned long stat_t;
+
+#define ANSOLVER_STATS(A) \
+        A(cache_cutoffs) \
+        A(cache_hits)    \
+        A(cache_misses)  \
+        A(cache_size)    \
+        A(dds_calls)     \
+        A(node_visits)
 
 class ANSOLVER
 {
@@ -20,6 +29,11 @@ class ANSOLVER
     INTSET	_all_dids;
     BDT         _all_cube;
     TTMAP       _tt;
+
+    // stats
+#define A(x)	stat_t _ ## x;
+ANSOLVER_STATS(A)
+#undef A
 
     bool doit_ew(STATE& state, const INTSET& dids);
     bool doit_ns(STATE& state, const INTSET& dids);
@@ -38,6 +52,7 @@ class ANSOLVER
     bool eval(const std::vector<CARD>& plays_so_far, const INTSET& dids);
 
     const PROBLEM& problem() const { return _p; }
+    std::map<std::string, stat_t> get_stats() const;
 };
 
 #endif // _ANSOLVER_H_
