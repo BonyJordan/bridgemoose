@@ -4,8 +4,16 @@
 std::pair<STATE, INTSET> load_from_history(const PROBLEM& problem,
     const std::vector<CARD>& plays_so_far)
 {
-    STATE state(problem.trump);
     INTSET dids = INTSET::full_set((int)problem.wests.size());
+    return load_from_history(problem, plays_so_far, dids);
+}
+
+
+std::pair<STATE, INTSET> load_from_history(const PROBLEM& problem,
+    const std::vector<CARD>& plays_so_far, const INTSET& dids_in)
+{
+    STATE state(problem.trump);
+    INTSET dids(dids_in);
 
     for (unsigned i=0 ; i<plays_so_far.size() ; i++)
     {
@@ -52,6 +60,7 @@ std::pair<STATE, INTSET> load_from_history(const PROBLEM& problem,
 
     return std::pair<STATE,INTSET>(state, dids);
 }
+
 
 UPMAP find_usable_plays_ew(const PROBLEM& problem, const STATE& state,
     const INTSET& dids)
