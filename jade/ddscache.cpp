@@ -1,4 +1,5 @@
 #include "ddscache.h"
+#include "jassert.h"
 #include "solutil.h"
 
 //static
@@ -12,7 +13,7 @@ DDS_KEY DDS_KEY::from_state(const STATE& state)
     for (int i=0 ; i<3 ; i++) {
         CARD card = state.trick_card(i);
         dk.trick_card_bits <<= 6;
-        dk.trick_card_bits |= (card.suit & 0x3) << 2;
+        dk.trick_card_bits |= (card.suit & 0x3) << 4;
         dk.trick_card_bits |= card.rank & 0xf;
     }
     return dk;
@@ -33,13 +34,14 @@ DDS_CACHE::~DDS_CACHE()
 std::map<int, hand64_t> DDS_CACHE::solve_many(const STATE& state,
     const INTSET& dids)
 {
-    std::map<int, hand64_t> out;
     DDS_KEY key = DDS_KEY::from_state(state);
+    std::map<int, hand64_t> out;
     INTSET work;
 
     for (INTSET_ITR itr(dids) ; itr.more() ; itr.next())
     {
-	key.did = itr.current();
+	int did = itr.current();
+	key.did = did;
 	std::map<DDS_KEY, hand64_t>::const_iterator f = _data.find(key);
 	if (f == _data.end())
 	    work.insert(did);
@@ -60,12 +62,15 @@ std::map<int, hand64_t> DDS_CACHE::solve_many(const STATE& state,
 		jassert(sb.score[j] != -2);
 		if (sb.score[j] == 0 || sb.score[j] == -1)
 		    assert(j == 0);
-		else
-		    wins |= card_to_handbit(CARD(sb.suit[j], sb.rank[j]));
+		else {
+		    CARD card(sb.suit[j], sb.rank[j]);
+		    jassert(card.valid());
+		    wins |= card_to_handbit(card);
+		}
 	    }
 	    key.did = loader.chunk_did(i);
-	    out[did] = wins;
-	    _cache[key] = wins;
+	    out[key.did] = wins;
+	    _data[key] = wins;
 	}
     }
 
