@@ -20,6 +20,7 @@ struct CARD {
     operator bool() const { return rank != 0; }
     bool operator <(const CARD& a) const { return suit*16+rank < a.suit*16+a.rank; }
     bool operator ==(const CARD& a) const { return suit==a.suit && rank==a.rank; }
+    bool valid() const { return suit>=0 && suit<=3 && rank>=2 && rank<=14; }
 
     int suit;	// 0 to 3
     int rank;	// 2 to 14
