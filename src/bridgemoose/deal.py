@@ -41,6 +41,8 @@ with the following useful analytics defined:
             self.init_for_iterable(cards)
         elif type(cards) is set:
             self.init_for_iterable(cards)
+        elif type(cards) is Hand:
+            self.init_for_iterable(cards.cards)
         else:
             raise TypeError("bad type: %s for" % (type(cards)), cards)
 
@@ -157,19 +159,20 @@ C Q53           C KT64
     return out
 
 def fourth_hand(h1, h2, h3):
-    h1 = bm.Hand(h1)
-    h2 = bm.Hand(h2)
-    h3 = bm.Hand(h3)
+    h1 = Hand(h1)
+    h2 = Hand(h2)
+    h3 = Hand(h3)
     ac = set(Card.all())
     ac -= h1.cards
     ac -= h2.cards
     ac -= h3.cards
-    return bm.Hand(ac)
+    return Hand(ac)
 
 
 class Deal:
     """ Class representing four bridge hands """
     def __init__(self, W, N, E, S):
+        nones = sum(x is None for x in (W,N,E,S))
         if nones == 1:
             if W is None:
                 W = fourth_hand(N,E,S)
