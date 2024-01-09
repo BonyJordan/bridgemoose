@@ -22,6 +22,8 @@ ANSOLVER::~ANSOLVER()
 bool ANSOLVER::eval(const std::vector<CARD>& plays_so_far, const INTSET& dids)
 {
     std::pair<STATE, INTSET> sd = load_from_history(_p, plays_so_far, dids);
+    if (!is_target_achievable(_p, sd.first))
+	return false;
     if (!all_can_win(sd.first, sd.second))
 	return false;
     return eval(sd.first, sd.second);
@@ -31,6 +33,8 @@ bool ANSOLVER::eval(const std::vector<CARD>& plays_so_far, const INTSET& dids)
 bool ANSOLVER::eval(const std::vector<CARD>& plays_so_far)
 {
     std::pair<STATE, INTSET> sd = load_from_history(_p, plays_so_far);
+    if (!is_target_achievable(_p, sd.first))
+	return false;
     if (!all_can_win(sd.first, sd.second))
 	return false;
     return eval(sd.first, sd.second);

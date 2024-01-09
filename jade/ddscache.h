@@ -4,6 +4,7 @@
 #include <map>
 #include "problem.h"
 #include "intset.h"
+#include "state.h"
 
 struct DDS_KEY {
     int	     did;

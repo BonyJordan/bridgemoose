@@ -16,6 +16,7 @@ std::pair<STATE, INTSET> load_from_history(const PROBLEM& problem,
     const std::vector<CARD>& plays_so_far, const INTSET& dids);
 UPMAP find_usable_plays_ew(const PROBLEM& problem, const STATE& state,
     const INTSET& dids);
+bool is_target_achievable(const PROBLEM& problem, const STATE& state);
 
 ///////////
 

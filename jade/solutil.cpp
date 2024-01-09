@@ -89,6 +89,11 @@ UPMAP find_usable_plays_ew(const PROBLEM& problem, const STATE& state,
     return plays;
 }
 
+bool is_target_achievable(const PROBLEM& problem, const STATE& state)
+{
+    return handbits_count(problem.north) - state.ew_tricks() >= problem.target;
+}
+
 
 ///////////////////////////////////////
 

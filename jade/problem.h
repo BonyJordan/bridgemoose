@@ -3,7 +3,6 @@
 
 #include <vector>
 #include "cards.h"
-#include "state.h"
 
 
 struct PROBLEM
