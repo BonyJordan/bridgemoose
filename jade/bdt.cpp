@@ -1,5 +1,5 @@
 #include <assert.h>
-#include "bdt2.h"
+#include "bdt.h"
 #include <map>
 
 

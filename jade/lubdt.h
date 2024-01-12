@@ -1,7 +1,7 @@
 #ifndef _LUBDT_H_
 #define _LUBDT_H_
 
-#include "bdt2.h"
+#include "bdt.h"
 
 struct LUBDT {
     LUBDT() {}

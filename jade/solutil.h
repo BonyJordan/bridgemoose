@@ -3,7 +3,7 @@
 
 #include <utility>
 #include <map>
-#include "bdt2.h"
+#include "bdt.h"
 #include "intset.h"
 #include "problem.h"
 #include "state.h"
