@@ -114,47 +114,6 @@ bool all_can_win(const PROBLEM& problem, const STATE& state,
  
 ///////////////////////////////////////
 
-BDT set_to_atoms(const INTSET& is)
-{
-    BDT out;
-    for (INTSET_ITR itr(is) ; itr.more() ; itr.next())
-        out |= BDT::atom(itr.current());
-    return out;
-}
-
-
-BDT set_to_cube(const INTSET& is)
-{
-    BDT out;
-    for (INTSET_ITR itr(is) ; itr.more() ; itr.next())
-        out = out.extrude(itr.current());
-    return out;
-}
-
-BDT bdt_anti_cube(const INTSET& big, const INTSET& small)
-{
-    BDT perfect, flawed;
-    bool any_flaws = false;
-    for (INTSET_PAIR_ITR itr(big,small) ; itr.more() ; itr.next())
-    {
-	if (itr.a_only()) {
-	    perfect = perfect.extrude(itr.current());
-	    flawed = flawed.extrude(itr.current());
-	} else if (itr.both()) {
-	    if (any_flaws) {
-		flawed = perfect | flawed.extrude(itr.current());
-	    } else {
-		any_flaws = true;
-		flawed = perfect;
-	    }
-	    perfect = perfect.extrude(itr.current());
-	}
-    }
-    return flawed;
-}
-
-///////////////////////////////////////
-
 bdt2_t set_to_atoms(BDT2_MANAGER& b2, const INTSET& is)
 {
     bdt2_t out;

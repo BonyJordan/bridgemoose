@@ -9,7 +9,6 @@ module_jade = setuptools.Extension('bridgemoose.jade',
     sources=[os.path.join('jade', x) for x in [
         'Python.cpp',
         'ansolver.cpp',
-        'bdt.cpp',
         'bdt2.cpp',
         'cards.cpp',
         'ddscache.cpp',
