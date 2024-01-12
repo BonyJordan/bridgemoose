@@ -22,9 +22,9 @@ bool all_can_win(const PROBLEM& problem, const STATE& state,
 
 ///////////
 
-bdt2_t set_to_atoms2(BDT2_MANAGER& b2, const INTSET& is);
-bdt2_t set_to_cube2(BDT2_MANAGER& b2, const INTSET& is);
-bdt2_t bdt_anti_cube2(BDT2_MANAGER& b2, const INTSET& big, const INTSET& small);
+bdt_t set_to_atoms(BDT_MANAGER& b2, const INTSET& is);
+bdt_t set_to_cube(BDT_MANAGER& b2, const INTSET& is);
+bdt_t bdt_anti_cube(BDT_MANAGER& b2, const INTSET& big, const INTSET& small);
 
 ///////////
 

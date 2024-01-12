@@ -131,7 +131,7 @@ typedef struct {
 
 
 static PyObject*
-bdt_to_py_list_of_cubes(BDT2_MANAGER& b2, bdt2_t key)
+bdt_to_py_list_of_cubes(BDT_MANAGER& b2, bdt_t key)
 {
     std::vector<INTSET> cubes = b2.get_cubes(key);
     PyObject* outer = PyList_New(cubes.size());
@@ -439,7 +439,7 @@ Solver_eval(PyObject* self, PyObject* args)
 	return NULL;
 
     Solver_Object* so = (Solver_Object*)self;
-    bdt2_t out = so->solver->eval(plays);
+    bdt_t out = so->solver->eval(plays);
     return bdt_to_py_list_of_cubes(so->solver->bdt_mgr(), out);
 }
 
