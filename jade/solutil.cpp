@@ -94,7 +94,24 @@ bool is_target_achievable(const PROBLEM& problem, const STATE& state)
     return handbits_count(problem.north) - state.ew_tricks() >= problem.target;
 }
 
-
+bool all_can_win(const PROBLEM& problem, const STATE& state,
+    const INTSET& dids)
+{
+    DDS_LOADER loader(problem, state, dids, 1, 1);
+    for ( ; loader.more() ; loader.next())
+    {
+        for (int i=0 ; i<loader.chunk_size() ; i++) {
+            int score = loader.chunk_solution(i).score[0];
+            if (state.to_play_ns() && score <= 0)
+                return false;
+            if (state.to_play_ew() && score > 0)
+                return false;
+        }
+    }
+    return true;
+}
+ 
+ 
 ///////////////////////////////////////
 
 BDT set_to_atoms(const INTSET& is)

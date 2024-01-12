@@ -41,8 +41,6 @@ ANSOLVER_STATS(A)
     std::vector<CARD> find_usable_plays_ns(const STATE& state,
 	const INTSET& dids);
 
-    bool all_can_win(const STATE& state, const INTSET& dids);
-
   public:
     ANSOLVER(const PROBLEM& p);
     ~ANSOLVER();

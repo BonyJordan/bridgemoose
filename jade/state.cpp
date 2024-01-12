@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
+#include "jassert.h"
 #include "state.h"
 
 STATE::STATE(int trump) :
@@ -11,6 +12,7 @@ STATE::STATE(int trump) :
     _trump(trump)
 {
     _leader[0] = J_WEST;
+    _show_out_status[0] = 0;
 }
 
 
@@ -24,7 +26,20 @@ void STATE::play(const CARD& card)
     assert(_num_played < 52);
     _history[_num_played] = card;
     _played |= card_to_handbit(card);
+
+    int new_so_status = _show_out_status[_num_played];
+    if (_num_played % 4 != 0 && to_play_ew()) {
+	int sl = suit_led();
+	if (card.suit != sl) {
+	    int bn = sl * 2;
+	    if (_to_play == J_EAST)
+		bn += 1;
+	    new_so_status |= (1 << bn);
+	}
+    }
     _num_played++;
+    _show_out_status[_num_played] = new_so_status;
+
     assert(handbits_count(_played) == _num_played);
 
     if (_num_played % 4 == 0)
@@ -97,10 +112,34 @@ int STATE::compute_winner() const
 
 hand64_t STATE::to_key() const
 {
-    hand64_t nst = _ns_tricks;
-    hand64_t or_in = ((nst & 0xc) << 30) | ((nst & 0x3) << 16) | (_to_play & 0x3);
-    // jassert((or_in & _played) == 0);
-    return _played | or_in;
+    hand64_t out = 0;
+    // bits [12,64), whether each card has been played yet
+    int so_key = 0;
+    for (int suit=0 ; suit<4 ; suit++) {
+	out <<= 13;
+	out |= (_played >> (16*suit+2)) & 0x1fff;
+	so_key *= 3;
+	so_key += (_show_out_status[_num_played] >> (2*suit)) % 3;
+    }
+
+    out <<= 7;
+    jassert(so_key >= 0 && so_key < 81);
+    // bits [5,12), show out state
+    out |= so_key;
+
+    // bits [3,5), whose turn to play
+    out <<= 2;
+    jassert(_to_play >= 0 && _to_play < 4);
+    out |= _to_play;
+
+    // bits [0,3), num ew_tricks so far
+    // This is assuming we are always trying to make a contract and have
+    // failed out of a search by this point
+    out <<= 3;
+    jassert(_ew_tricks >= 0 && _ew_tricks < 8);
+    out |= _ew_tricks;
+
+    return out;
 }
 
 

@@ -5,10 +5,14 @@
 #include <string>
 #include "cards.h"
 
+// show_out_status:
+//  bit SUIT*2 + (EAST:1, WEST:0) is 1 if that player has failed to follow
+
 class STATE
 {
     hand64_t	_played;
     CARD	_history[52];
+    int         _show_out_status[52];
     int		_leader[13];
     int		_num_played;
     int		_ns_tricks;
@@ -58,6 +62,10 @@ class STATE
     int num_played() const { return _num_played; }
     CARD history(int i) const
 	{ assert(i >= 0 && i < _num_played); return _history[i]; }
+
+    int show_out_status() const {
+	return _num_played >= 52 ? 0xff : _show_out_status[_num_played];
+    }
 };
 
 #endif // _STATE_H_

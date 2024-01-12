@@ -194,6 +194,7 @@ Solver_dealloc(Solver_Object* self)
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
+
 static void
 ANSolver_dealloc(ANSolver_Object* self)
 {
@@ -475,7 +476,6 @@ ANSolver_eval(PyObject* self, PyObject* args)
 }
 
 
-
 static PyObject*
 stats_to_pydict(const std::map<std::string, stat_t>& stats)
 {
@@ -565,6 +565,7 @@ static PyTypeObject ANSolver_Type = {
     .tp_new = ANSolver_new,
     .tp_dealloc = (destructor)ANSolver_dealloc,
 };
+
 
 static PyModuleDef jade_module = {
     PyModuleDef_HEAD_INIT,

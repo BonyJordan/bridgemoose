@@ -24,7 +24,8 @@ bool ANSOLVER::eval(const std::vector<CARD>& plays_so_far, const INTSET& dids)
     std::pair<STATE, INTSET> sd = load_from_history(_p, plays_so_far, dids);
     if (!is_target_achievable(_p, sd.first))
 	return false;
-    if (!all_can_win(sd.first, sd.second))
+    _dds_calls++;
+    if (!all_can_win(_p, sd.first, sd.second))
 	return false;
     return eval(sd.first, sd.second);
 }
@@ -35,28 +36,10 @@ bool ANSOLVER::eval(const std::vector<CARD>& plays_so_far)
     std::pair<STATE, INTSET> sd = load_from_history(_p, plays_so_far);
     if (!is_target_achievable(_p, sd.first))
 	return false;
-    if (!all_can_win(sd.first, sd.second))
+    _dds_calls++;
+    if (!all_can_win(_p, sd.first, sd.second))
 	return false;
     return eval(sd.first, sd.second);
-}
-
-
-bool ANSOLVER::all_can_win(const STATE& state, const INTSET& dids)
-{
-    _dds_calls++;
-
-    DDS_LOADER loader(_p, state, dids, 1, 1);
-    for ( ; loader.more() ; loader.next())
-    {
-	for (int i=0 ; i<loader.chunk_size() ; i++) {
-	    int score = loader.chunk_solution(i).score[0];
-	    if (state.to_play_ns() && score <= 0)
-		return false;
-	    if (state.to_play_ew() && score > 0)
-		return false;
-	}
-    }
-    return true;
 }
 
 
