@@ -107,7 +107,7 @@ class BDT2_MANAGER
     BDT2_NODE expand(bdt2_t key) const;
 
     enum { MAP_NUM = 6 };
-    void get_map_sizes(size_t sizes[MAP_NUM]);
+    void get_map_sizes(size_t sizes[MAP_NUM]) const;
 };
 
 

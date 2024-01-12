@@ -15,7 +15,7 @@ BDT2_MANAGER::~BDT2_MANAGER()
 }
 
 
-void BDT2_MANAGER::get_map_sizes(size_t sizes[MAP_NUM])
+void BDT2_MANAGER::get_map_sizes(size_t sizes[MAP_NUM]) const
 {
     size_t i=0;
     sizes[i++] = _nodes.size();

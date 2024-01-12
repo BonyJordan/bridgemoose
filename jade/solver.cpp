@@ -5,34 +5,36 @@
 
 //////////////////////
 
-static BDT expand_bdt(BDT x, const INTSET& big_dids, const INTSET& small_dids)
+static bdt2_t expand_bdt(BDT2_MANAGER& b2, bdt2_t x,
+    const INTSET& big_dids, const INTSET& small_dids)
 {
     for (INTSET_PAIR_ITR itr(big_dids, small_dids) ; itr.more() ; itr.next())
     {
         if (itr.a_only())
-            x = x.extrude(itr.current());
+            x = b2.extrude(x, itr.current());
     }
     return x;
 }
 
-static BDT reduce_bdt(BDT x, const INTSET& big_dids, const INTSET& small_dids)
+static bdt2_t reduce_bdt(BDT2_MANAGER& b2, bdt2_t x,
+    const INTSET& big_dids, const INTSET& small_dids)
 {
     for (INTSET_PAIR_ITR itr(big_dids, small_dids) ; itr.more() ; itr.next())
     {
         if (itr.a_only())
-            x = x.remove(itr.current());
+            x = b2.remove(x, itr.current());
     }
     return x;
 }
 
-static BDT reduce_require_bdt(BDT x, const INTSET& big_dids,
-    const INTSET& small_dids)
+static bdt2_t reduce_require_bdt(BDT2_MANAGER& b2, bdt2_t x,
+    const INTSET& big_dids, const INTSET& small_dids)
 {
     for (INTSET_PAIR_ITR itr(big_dids, small_dids) ; itr.more() ; itr.next())
     {
         if (itr.a_only()) {
-            x = x.require(itr.current());
-            x = x.remove(itr.current());
+            x = b2.require(x, itr.current());
+            x = b2.remove(x, itr.current());
         }
     }
     return x;
@@ -47,7 +49,7 @@ SOLVER::SOLVER(const PROBLEM& problem)
 {
     jassert(_p.wests.size() == _p.easts.size());
     _all_dids = INTSET::full_set((int)_p.wests.size());
-    _all_cube = set_to_cube(_all_dids);
+    _all_cube = set_to_cube2(_b2, _all_dids);
 #define A(x)	_ ## x = 0;
     SOLVER_STATS(A)
 #undef A
@@ -59,7 +61,7 @@ SOLVER::~SOLVER()
 }
 
 
-BDT SOLVER::eval(const std::vector<CARD> plays_so_far)
+bdt2_t SOLVER::eval(const std::vector<CARD> plays_so_far)
 {
     std::pair<STATE, INTSET> sd = load_from_history(_p, plays_so_far);
     eval_2(sd.first, sd.second);
@@ -101,40 +103,42 @@ void SOLVER::eval_2(STATE& state, INTSET& dids)
 }
 
 
-BDT SOLVER::eval(STATE& state, const INTSET& dids)
+bdt2_t SOLVER::eval(STATE& state, const INTSET& dids)
 {
-    LUBDT search_bounds(set_to_atoms(dids), set_to_cube(dids));
-    LUBDT result = doit(state, dids, search_bounds);
-    return (result.lower | search_bounds.lower) & search_bounds.upper;
+    LUBDT2 search_bounds(set_to_atoms2(_b2, dids), set_to_cube2(_b2, dids));
+    LUBDT2 result = doit(state, dids, search_bounds);
+    return _b2.intersect(
+	search_bounds.upper,
+	_b2.unionize(result.lower, search_bounds.lower));
 }
 
 
-LUBDT SOLVER::doit(STATE& state, const INTSET& dids, LUBDT search_bounds)
+LUBDT2 SOLVER::doit(STATE& state, const INTSET& dids, LUBDT2 search_bounds)
 {
     const bool debug = false;
     _node_visits++;
     
     if (state.ns_tricks() >= _p.target) {
-	BDT cube = set_to_cube(dids);
-	return LUBDT(cube, cube);
+	bdt2_t cube = set_to_cube2(_b2, dids);
+	return LUBDT2(cube, cube);
     } else if (handbits_count(_p.north) - state.ew_tricks() < _p.target) {
 	// I think this never happens
 	jassert(false);
     }
 
-    LUBDT node_bounds(BDT(), _all_cube);
+    LUBDT2 node_bounds(0, _all_cube);
     bool new_trick = state.new_trick();
     hand64_t state_key = state.to_key();
 
     if (new_trick) {
-        TTMAP::iterator f = _tt.find(state_key);
+        TTMAP2::iterator f = _tt.find(state_key);
         if (f != _tt.end()) {
             node_bounds = f->second;
 	    _cache_hits++;
 	    if (debug) {
 		printf("SOLVER::doit cache hit lb=%s ub=%s\n",
-		    bdt_to_string(node_bounds.lower).c_str(),
-		    bdt_to_string(node_bounds.upper).c_str());
+		    bdt_to_string(_b2, node_bounds.lower).c_str(),
+		    bdt_to_string(_b2, node_bounds.upper).c_str());
 		}
         } else {
 	    _cache_misses++;
@@ -144,24 +148,26 @@ LUBDT SOLVER::doit(STATE& state, const INTSET& dids, LUBDT search_bounds)
 	}
     }
 
-    INTSET node_dids = node_bounds.lower.get_used_vars();
+    INTSET node_dids = _b2.get_used_vars(node_bounds.lower);
     for (INTSET_PAIR_ITR itr(dids, node_dids) ; itr.more() ; itr.next()) {
         if (itr.a_only()) {
-            node_bounds.lower |= BDT::atom(itr.current());
-            node_bounds.upper = node_bounds.upper.extrude(itr.current());
+            node_bounds.lower = _b2.unionize(
+		node_bounds.lower,
+		_b2.atom(itr.current()));
+            node_bounds.upper = _b2.extrude(node_bounds.upper, itr.current());
         }
     }
 
     search_bounds.lower |= node_bounds.lower;
     search_bounds.upper &= node_bounds.upper;
-    if (search_bounds.upper.subset_of(search_bounds.lower))
+    if (_b2.subset_of(search_bounds.upper, search_bounds.lower))
         return node_bounds;
 
     if (debug) {
 	printf("SOLVER::doit  about to compute. dids=%s  state=[%s]\n",
 	    intset_to_string(dids).c_str(), state.to_string().c_str());
     }
-    LUBDT out;
+    LUBDT2 out;
     if (state.to_play_ew())
         out = doit_ew(state, dids, search_bounds, node_bounds);
     else
@@ -170,8 +176,8 @@ LUBDT SOLVER::doit(STATE& state, const INTSET& dids, LUBDT search_bounds)
     if (debug) {
 	printf("SOLVER::doit  done with compute. state=[%s]\n",
 	    state.to_string().c_str());
-	printf("out.lower = %s\n", bdt_to_string(out.lower).c_str());
-	printf("out.upper = %s\n", bdt_to_string(out.upper).c_str());
+	printf("out.lower = %s\n", bdt_to_string(_b2, out.lower).c_str());
+	printf("out.upper = %s\n", bdt_to_string(_b2, out.upper).c_str());
     }
 
     if (new_trick) {
@@ -184,12 +190,12 @@ LUBDT SOLVER::doit(STATE& state, const INTSET& dids, LUBDT search_bounds)
 }
 
 
-LUBDT SOLVER::doit_ew(STATE& state, const INTSET& dids, LUBDT search_bounds,
-    LUBDT node_bounds)
+LUBDT2 SOLVER::doit_ew(STATE& state, const INTSET& dids, LUBDT2 search_bounds,
+    LUBDT2 node_bounds)
 {
     UPMAP plays = find_usable_plays_ew(_p, state, dids);
 
-    BDT cum_lower = node_bounds.upper;
+    bdt2_t cum_lower = node_bounds.upper;
 
     UPMAP::const_iterator itr;
     for (itr=plays.begin() ; itr != plays.end() ; itr++)
@@ -200,31 +206,39 @@ LUBDT SOLVER::doit_ew(STATE& state, const INTSET& dids, LUBDT search_bounds,
             continue;
         }
 
-        BDT sub_lower = reduce_require_bdt(search_bounds.lower,
+        bdt2_t sub_lower = reduce_require_bdt(_b2, search_bounds.lower,
             dids, sub_dids);
-        BDT sub_upper = reduce_bdt(search_bounds.upper,
+        bdt2_t sub_upper = reduce_bdt(_b2, search_bounds.upper,
             dids, sub_dids);
-        LUBDT sub_bounds(sub_lower, sub_upper);
+        LUBDT2 sub_bounds(sub_lower, sub_upper);
 
         state.play(card);
-        LUBDT result = doit(state, sub_dids, sub_bounds);
+        LUBDT2 result = doit(state, sub_dids, sub_bounds);
         state.undo();
 
-        search_bounds.upper &= expand_bdt(result.upper, dids, sub_dids);
-        node_bounds.upper &= expand_bdt(result.upper, _all_dids, sub_dids);
-        cum_lower &= expand_bdt(result.upper, _all_dids, sub_dids);
+        search_bounds.upper = _b2.intersect(
+	    search_bounds.upper,
+	    expand_bdt(_b2, result.upper, dids, sub_dids));
+        node_bounds.upper = _b2.intersect(
+	    node_bounds.upper,
+	    expand_bdt(_b2, result.upper, _all_dids, sub_dids));
+        cum_lower = _b2.intersect(
+	    cum_lower,
+	    expand_bdt(_b2, result.upper, _all_dids, sub_dids));
 
-        if (search_bounds.upper.subset_of(search_bounds.lower))
+        if (_b2.subset_of(search_bounds.upper, search_bounds.lower))
             return node_bounds;
     }
 
-    node_bounds.lower |= cum_lower;
+    node_bounds.lower = _b2.unionize(
+	node_bounds.lower,
+	cum_lower);
     return node_bounds;
 }
 
 
-LUBDT SOLVER::doit_ns(STATE& state, const INTSET& dids, LUBDT search_bounds,
-    LUBDT node_bounds)
+LUBDT2 SOLVER::doit_ns(STATE& state, const INTSET& dids, LUBDT2 search_bounds,
+    LUBDT2 node_bounds)
 {
     const bool debug = false;
     if (debug) {
@@ -232,7 +246,7 @@ LUBDT SOLVER::doit_ns(STATE& state, const INTSET& dids, LUBDT search_bounds,
     }
 
     UPMAP usable_plays = find_usable_plays_ns(state, dids);
-    BDT cum_upper = node_bounds.lower;
+    bdt2_t cum_upper = node_bounds.lower;
 
     while (!usable_plays.empty())
     {
@@ -248,23 +262,23 @@ LUBDT SOLVER::doit_ns(STATE& state, const INTSET& dids, LUBDT search_bounds,
             continue;
 
         // Okay, try the play and see what happens!
-        BDT sub_lower = reduce_bdt(search_bounds.lower, dids, sub_dids);
-        BDT sub_upper = reduce_bdt(search_bounds.upper, dids, sub_dids);
-        LUBDT sub_bounds(sub_lower, sub_upper);
+        bdt2_t sub_lower = reduce_bdt(_b2, search_bounds.lower, dids, sub_dids);
+        bdt2_t sub_upper = reduce_bdt(_b2, search_bounds.upper, dids, sub_dids);
+        LUBDT2 sub_bounds(sub_lower, sub_upper);
 
         state.play(card);
-        LUBDT result = doit(state, sub_dids, sub_bounds);
+        LUBDT2 result = doit(state, sub_dids, sub_bounds);
         state.undo();
 
-	result.lower = reduce_bdt(result.lower, dids, sub_dids);
-	result.upper = reduce_bdt(result.upper, dids, sub_dids);
+	result.lower = reduce_bdt(_b2, result.lower, dids, sub_dids);
+	result.upper = reduce_bdt(_b2, result.upper, dids, sub_dids);
 
         search_bounds.lower |= result.lower;
         node_bounds.lower |= result.lower;
         cum_upper |= result.upper;
 
         // Did we cutoff?
-        if (search_bounds.upper.subset_of(search_bounds.lower)) {
+        if (_b2.subset_of(search_bounds.upper, search_bounds.lower)) {
             return node_bounds;
         }
     }
@@ -319,8 +333,8 @@ std::map<std::string, stat_t> SOLVER::get_stats() const
     SOLVER_STATS(A)
 #undef A 
 
-    size_t bdt_sizes[BDT::MAP_NUM];
-    BDT::get_map_sizes(bdt_sizes);
+    size_t bdt_sizes[BDT2_MANAGER::MAP_NUM];
+    _b2.get_map_sizes(bdt_sizes);
 
     size_t i=0;
     out["bdt_nodes"] = bdt_sizes[i++];
@@ -329,7 +343,7 @@ std::map<std::string, stat_t> SOLVER::get_stats() const
     out["bdt_extrude_map"] = bdt_sizes[i++];
     out["bdt_remove_map"] = bdt_sizes[i++];
     out["bdt_require_map"] = bdt_sizes[i++];
-    assert(i == BDT::MAP_NUM);
+    assert(i == BDT2_MANAGER::MAP_NUM);
 
     return out;
 }
@@ -351,10 +365,10 @@ void SOLVER::track_dds(const STATE& state, const INTSET& dids)
 
 //////////////
 
-std::string bdt_to_string(BDT bdt)
+std::string bdt_to_string(BDT2_MANAGER& b2, bdt2_t bdt)
 {
     bool first = true;
-    std::vector<INTSET> cubes = bdt.get_cubes();
+    std::vector<INTSET> cubes = b2.get_cubes(bdt);
     std::vector<INTSET>::const_iterator itr;
     std::string out = "{";
 

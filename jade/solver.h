@@ -13,7 +13,7 @@
 
 #include <set>
 
-typedef std::map<hand64_t, LUBDT> TTMAP;
+typedef std::map<hand64_t, LUBDT2> TTMAP2;
 
 
 typedef unsigned long stat_t;
@@ -35,9 +35,10 @@ class SOLVER
     const PROBLEM& _p;
 
     // helper info
+    BDT2_MANAGER _b2;
     INTSET	_all_dids;
-    BDT         _all_cube;
-    TTMAP       _tt;
+    bdt2_t      _all_cube;
+    TTMAP2      _tt;
 
     // stats
 #define A(x)	stat_t _ ## x;
@@ -46,9 +47,9 @@ SOLVER_STATS(A)
     std::set<DDS_KEY>	_dds_tracker;
   
     // Internal Functions
-    LUBDT doit(STATE& state, const INTSET& dids, LUBDT search_bounds);
-    LUBDT doit_ew(STATE& state, const INTSET& dids, LUBDT search_bounds, LUBDT node_bounds);
-    LUBDT doit_ns(STATE& state, const INTSET& dids, LUBDT search_bounds, LUBDT node_bounds);
+    LUBDT2 doit(STATE& state, const INTSET& dids, LUBDT2 search_bounds);
+    LUBDT2 doit_ew(STATE& state, const INTSET& dids, LUBDT2 search_bounds, LUBDT2 node_bounds);
+    LUBDT2 doit_ns(STATE& state, const INTSET& dids, LUBDT2 search_bounds, LUBDT2 node_bounds);
     void eval_2(STATE& state, INTSET& dids);
 
     UPMAP find_usable_plays_ns(const STATE& state, const INTSET& dids);
@@ -61,8 +62,9 @@ SOLVER_STATS(A)
     SOLVER(const PROBLEM& p);
     ~SOLVER();
 
-    BDT eval(STATE& state, const INTSET& dids);
-    BDT eval(const std::vector<CARD> plays_so_far);
+    bdt2_t eval(STATE& state, const INTSET& dids);
+    bdt2_t eval(const std::vector<CARD> plays_so_far);
+    BDT2_MANAGER& bdt_mgr() { return _b2; }
 
     const PROBLEM& problem() const { return _p; }
     size_t count_ew() const { return _p.wests.size(); }
@@ -76,6 +78,6 @@ SOLVER_STATS(A)
     std::map<std::string, stat_t> get_stats() const;
 };
 
-std::string bdt_to_string(BDT bdt);
+std::string bdt_to_string(BDT2_MANAGER& b2, bdt2_t bdt);
 
 #endif // _SOLVER_H_
