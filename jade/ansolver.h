@@ -7,7 +7,7 @@
 #include "solutil.h"
 #include "ddscache.h"
 
-typedef std::map<hand64_t, LUBDT> TTMAP;
+typedef std::map<hand64_t, LUBDT2> TTMAP2;
 typedef unsigned long stat_t;
 
 #define ANSOLVER_STATS(A) \
@@ -25,10 +25,11 @@ class ANSOLVER
     const PROBLEM& _p;
 
     // helper info
-    DDS_CACHE	_dds_cache;
-    INTSET	_all_dids;
-    BDT         _all_cube;
-    TTMAP       _tt;
+    BDT2_MANAGER _b2;
+    DDS_CACHE	 _dds_cache;
+    INTSET	 _all_dids;
+    bdt2_t       _all_cube;
+    TTMAP2       _tt;
 
     // stats
 #define A(x)	stat_t _ ## x;

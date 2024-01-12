@@ -7,7 +7,7 @@ ANSOLVER::ANSOLVER(const PROBLEM& problem) :
 {
     jassert(_p.wests.size() == _p.easts.size());
     _all_dids = INTSET::full_set((int)_p.wests.size());
-    _all_cube = set_to_cube(_all_dids);
+    _all_cube = set_to_cube2(_b2, _all_dids);
 #define A(x)	_ ## x = 0;
     ANSOLVER_STATS(A)
 #undef A
@@ -65,16 +65,16 @@ bool ANSOLVER::eval(STATE& state, const INTSET& dids)
     hand64_t state_key = state.to_key();
 
     if (new_trick) {
-	TTMAP::iterator f = _tt.find(state_key);
+	TTMAP2::iterator f = _tt.find(state_key);
 	if (f != _tt.end()) {
 	    _cache_hits++;
-	    if (f->second.lower.contains(dids)) {
+	    if (_b2.contains(f->second.lower, dids)) {
 		if (debug)
 		    printf("ANSOLVER::eval cache hit True\n"); 
 		_cache_cutoffs++;
 		return true;
 	    }
-	    if (!f->second.upper.contains(dids)) {
+	    if (!_b2.contains(f->second.upper, dids)) {
 		if (debug)
 		    printf("ANSOLVER::eval cache hit False\n"); 
 		_cache_cutoffs++;
@@ -96,16 +96,20 @@ bool ANSOLVER::eval(STATE& state, const INTSET& dids)
 	    result);
 
     if (state.new_trick()) {
-	TTMAP::iterator f = _tt.find(state_key);
+	TTMAP2::iterator f = _tt.find(state_key);
 	if (f == _tt.end()) {
-	    _tt[state_key] = LUBDT(set_to_atoms(dids), _all_cube);
+	    _tt[state_key] = LUBDT2(set_to_atoms2(_b2, dids), _all_cube);
 	    _cache_size++;
 	}
 
 	if (result)
-	    _tt[state_key].lower |= set_to_cube(dids);
+	    _tt[state_key].lower = _b2.unionize(
+		_tt[state_key].lower,
+		set_to_cube2(_b2, dids));
 	else
-	    _tt[state_key].upper &= bdt_anti_cube(_all_dids, dids);
+	    _tt[state_key].upper = _b2.intersect(
+		_tt[state_key].upper,
+		bdt_anti_cube2(_b2, _all_dids, dids));
     }
     return result;
 }

@@ -4,6 +4,7 @@
 #include <utility>
 #include <map>
 #include "bdt.h"
+#include "bdt2.h"
 #include "intset.h"
 #include "problem.h"
 #include "state.h"
@@ -25,6 +26,10 @@ bool all_can_win(const PROBLEM& problem, const STATE& state,
 BDT set_to_atoms(const INTSET& is);
 BDT set_to_cube(const INTSET& is);
 BDT bdt_anti_cube(const INTSET& big, const INTSET& small);
+
+bdt2_t set_to_atoms2(BDT2_MANAGER& b2, const INTSET& is);
+bdt2_t set_to_cube2(BDT2_MANAGER& b2, const INTSET& is);
+bdt2_t bdt_anti_cube2(BDT2_MANAGER& b2, const INTSET& big, const INTSET& small);
 
 ///////////
 

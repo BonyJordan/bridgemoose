@@ -155,6 +155,47 @@ BDT bdt_anti_cube(const INTSET& big, const INTSET& small)
 
 ///////////////////////////////////////
 
+bdt2_t set_to_atoms(BDT2_MANAGER& b2, const INTSET& is)
+{
+    bdt2_t out;
+    for (INTSET_ITR itr(is) ; itr.more() ; itr.next())
+        out = b2.unionize(out, b2.atom(itr.current()));
+    return out;
+}
+
+
+bdt2_t set_to_cube(BDT2_MANAGER& b2, const INTSET& is)
+{
+    bdt2_t out;
+    for (INTSET_ITR itr(is) ; itr.more() ; itr.next())
+        out = b2.extrude(out, itr.current());
+    return out;
+}
+
+bdt2_t bdt_anti_cube(BDT2_MANAGER& b2, const INTSET& big, const INTSET& small)
+{
+    bdt2_t perfect, flawed;
+    bool any_flaws = false;
+    for (INTSET_PAIR_ITR itr(big,small) ; itr.more() ; itr.next())
+    {
+	if (itr.a_only()) {
+	    perfect = b2.extrude(perfect, itr.current());
+	    flawed = b2.extrude(flawed, itr.current());
+	} else if (itr.both()) {
+	    if (any_flaws) {
+		flawed = b2.unionize(perfect, b2.extrude(flawed, itr.current()));
+	    } else {
+		any_flaws = true;
+		flawed = perfect;
+	    }
+	    perfect = b2.extrude(perfect, itr.current());
+	}
+    }
+    return flawed;
+}
+
+///////////////////////////////////////
+
 DDS_LOADER::DDS_LOADER(const PROBLEM& problem, const STATE &state,
     const INTSET& dids, int mode, int solutions)
 :
