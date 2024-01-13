@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "ansolver.h"
 #include "jassert.h"
 
@@ -187,4 +188,96 @@ std::map<std::string, stat_t> ANSOLVER::get_stats() const
 #undef A
 
     return out;
+}
+
+////////////////////////
+
+static const uint32_t FILE_HEADER = 0xf136898;
+
+bool ANSOLVER::write_to_files(const char* bdt_file, const char* tt_file)
+{
+    if (!_b2.write_to_file(bdt_file))
+	return false;
+
+    FILE* fp = fopen(tt_file, "w");
+    if (fp == NULL) {
+	perror(tt_file);
+	return false;
+    }
+
+    if (fwrite(&FILE_HEADER, sizeof FILE_HEADER, 1, fp) != 1) {
+	perror(tt_file);
+	fclose(fp);
+	return false;
+    }
+    uint32_t sz = _tt.size();
+    if (fwrite(&sz, sizeof sz, 1, fp) != 1) {
+	perror(tt_file);
+	fclose(fp);
+	return false;
+    }
+
+    for (TTMAP::const_iterator itr = _tt.begin() ; itr != _tt.end() ; itr++)
+    {
+	if (fwrite(&*itr, sizeof *itr, 1, fp) != 1) {
+	    perror(tt_file);
+	    fclose(fp);
+	    return false;
+	}
+    }
+    fclose(fp);
+    return true;
+}
+
+
+template <class T>
+bool read_thing(T& thing, FILE* fp, const char* filename)
+{
+    if (fread(&thing, sizeof thing, 1, fp) != 1) {
+        if (feof(fp)) {
+            fprintf(stderr, "%s: Unexpected end of file\n", filename);
+            fclose(fp);
+            return false;
+        } else {
+            perror(filename);
+            fclose(fp);
+            return false;
+        }
+    }
+    return true;
+}
+
+
+bool ANSOLVER::read_from_files(const char* bdt_file, const char* tt_file)
+{
+    if (!_b2.read_from_file(bdt_file))
+	return false;
+
+    FILE* fp = fopen(tt_file, "w");
+    if (fp == NULL) {
+	perror(tt_file);
+	return false;
+    }
+
+    uint32_t u;
+    if (!read_thing(u, fp, tt_file)) {
+	return false;
+    }
+    if (u != FILE_HEADER) {
+	fprintf(stderr, "%s: missing header\n", tt_file);
+	fclose(fp);
+	return false;
+    }
+
+    if (!read_thing(u, fp, tt_file)) {
+	return false;
+    }
+    for (uint32_t i=0 ; i<u ; i++) {
+	TTMAP::value_type v;
+	if (!read_thing(v, fp, tt_file))
+	    return false;
+	_tt.insert(v);
+    }
+    fclose(fp);
+    return false;
 }

@@ -286,3 +286,92 @@ INTSET BDT_MANAGER::get_used_vars(bdt_t key) const
     }
     return out;
 }
+
+
+///////////
+
+static const uint32_t FILE_HEADER = 0x315722;
+
+bool BDT_MANAGER::write_to_file(const char* filename)
+{
+    FILE* fp = fopen(filename, "w");
+    if (fp == NULL) {
+	perror(filename);
+	return false;
+    }
+
+    if (fwrite(&FILE_HEADER, sizeof FILE_HEADER, 1, fp) != 1) {
+	fclose(fp);
+	perror(filename);
+	return false;
+    }
+
+    uint32_t sz = _nodes.size();
+    if (fwrite(&sz, sizeof sz, 1, fp) != 1) {
+	fclose(fp);
+	perror(filename);
+	return false;
+    }
+
+    for (unsigned i=1 ; i<_nodes.size() ; i++) {
+	if (fwrite(&_nodes[i], sizeof _nodes[i], 1, fp) != 1) {
+	    fclose(fp);
+	    perror(filename);
+	    return false;
+	}
+    }
+    fclose(fp);
+    return true;
+}
+
+template <class T>
+bool read_thing(T& thing, FILE* fp, const char* filename) {
+    if (fread(&thing, sizeof thing, 1, fp) != 1) {
+	if (feof(fp)) {
+	    fprintf(stderr, "%s: Unexpected end of file\n", filename);
+	    fclose(fp);
+	    return false;
+	} else {
+	    perror(filename);
+	    fclose(fp);
+	    return false;
+	}
+    }
+    return true;
+}
+
+
+bool BDT_MANAGER::read_from_file(const char* filename)
+{
+    if (_nodes.size() != 1) {
+	fprintf(stderr, "cannot read into non empty BDT_MANAGER\n");
+	return false;
+    }
+
+    FILE* fp = fopen(filename, "r");
+    if (!fp) {
+	perror(filename);
+	return false;
+    }
+
+    uint32_t sz;
+    if (!read_thing(sz, fp, filename)) {
+	return false;
+    }
+    if (sz != FILE_HEADER) {
+	fprintf(stderr, "%s: missing header\n", filename);
+	fclose(fp);
+	return false;
+    }
+    if (!read_thing(sz, fp, filename))
+	return false;
+    _nodes.resize(sz);
+
+    for (unsigned i=1 ; i<sz ; i++) {
+	if (!read_thing(_nodes[i], fp, filename))
+	    return false;
+	_node_rmap[_nodes[i]] = (bdt_t)i;
+    }
+    fclose(fp);
+    return true;
+}

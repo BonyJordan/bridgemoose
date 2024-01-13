@@ -527,6 +527,46 @@ ANSolver_stats(PyObject* self, PyObject* args)
 }
 
 
+static PyObject*
+ANSolver_write_to_files(PyObject* self, PyObject* args)
+{
+    ANSolver_Object* so = (ANSolver_Object*)self;
+    const char* bdt_file_name = NULL;
+    const char* tt_file_name = NULL;
+    if (!PyArg_ParseTuple(args, "ss", &bdt_file_name, &tt_file_name))
+	return NULL;
+
+    bool res = so->ansolver->write_to_files(bdt_file_name, tt_file_name);
+    if (!res) {
+	PyErr_SetNone(PyExc_OSError);
+	return NULL;
+    }
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+
+static PyObject*
+ANSolver_read_from_files(PyObject* self, PyObject* args)
+{
+    ANSolver_Object* so = (ANSolver_Object*)self;
+    const char* bdt_file_name = NULL;
+    const char* tt_file_name = NULL;
+    if (!PyArg_ParseTuple(args, "ss", &bdt_file_name, &tt_file_name))
+	return NULL;
+
+    bool res = so->ansolver->read_from_files(bdt_file_name, tt_file_name);
+    if (!res) {
+	PyErr_SetNone(PyExc_OSError);
+	return NULL;
+    }
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+
 static PyMethodDef Solver_RegularMethods[] = {
     { "eval", Solver_eval, METH_VARARGS, "Return a JBDD encoding the existence of play lines which cover various subsets of west/east possibilities" },
     { "stats", Solver_stats, METH_VARARGS, "Return a dict of statistics" },
@@ -536,6 +576,8 @@ static PyMethodDef Solver_RegularMethods[] = {
 static PyMethodDef ANSolver_RegularMethods[] = {
     { "eval", ANSolver_eval, METH_VARARGS, "Compute the existence of a play line which covers all west/east possibilities" },
     { "stats", ANSolver_stats, METH_VARARGS, "Return a dict of statistics" },
+    { "write_to_files", ANSolver_write_to_files, METH_VARARGS, "Save search cache to two files" },
+    { "read_from_files", ANSolver_read_from_files, METH_VARARGS, "Read search cache from two files" },
     { NULL, NULL, 0,  NULL },
 };
 

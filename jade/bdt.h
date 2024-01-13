@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <vector>
 #include <map>
+#include <stdio.h>
 #include "jassert.h"
 #include "intset.h"
 
@@ -108,6 +109,9 @@ class BDT_MANAGER
 
     enum { MAP_NUM = 6 };
     void get_map_sizes(size_t sizes[MAP_NUM]) const;
+
+    bool write_to_file(const char* filename); 
+    bool read_from_file(const char* filename);
 };
 
 

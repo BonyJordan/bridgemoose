@@ -52,6 +52,9 @@ ANSOLVER_STATS(A)
 
     const PROBLEM& problem() const { return _p; }
     std::map<std::string, stat_t> get_stats() const;
+
+    bool write_to_files(const char* bdt_file, const char* tt_file);
+    bool read_from_files(const char* bdt_file, const char* tt_file);
 };
 
 #endif // _ANSOLVER_H_
