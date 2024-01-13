@@ -6,6 +6,7 @@ class Card(collections.namedtuple("Card", "suit rank")):
     SUITS = "CDHS"
     RANKS = "23456789TJQKA"
     RANK_ORDER = {x:i for i,x in enumerate(RANKS)}
+    SUIT_ORDER = {x:i for i,x in enumerate(SUITS)}
 
     @staticmethod
     def rank_order(r):
@@ -102,5 +103,29 @@ if that suits your judgement.
                 return True
         return False
 
+def bit_pack(cards):
+    """ Take an iterable of cards and return a 52 bit integer representing
+        the bitwise or of (1 << (suit_index*13 + rank_index))
+        where clubs has suit_index=0 and the deuce has rank_index=0 """
+    out = 0
+    for card in cards:
+        card = Card(card)
+        out |= 1 << (Card.SUIT_ORDER[card.suit]*13 + Card.RANK_ORDER[card.rank])
+    return out
 
-__all__ = ["Card", "cmp_rank", "suit_as_good_as"]
+def bit_unpack(bits):
+    """ Take a 52 bit integer and output a list of cards, where a 1 bit in
+        position (suit_index*13 + rank_index) implies the existence of that
+        card.  clubs has suit_index=0 and the deuce has rank_index=0 """
+    out = []
+    for si,suit in enumerate(Card.SUITS):
+        for ri,rank in enumerate(Card.RANKS):
+            bit = 1 << (si*13 + ri)
+            if bit & bits:
+                out.append(Card(suit+rank))
+    return out
+
+
+
+
+__all__ = ["Card", "cmp_rank", "suit_as_good_as", "bit_pack", "bit_unpack"]
