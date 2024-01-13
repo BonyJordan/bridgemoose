@@ -126,8 +126,9 @@ bdt_t set_to_atoms(BDT_MANAGER& b2, const INTSET& is)
 bdt_t set_to_cube(BDT_MANAGER& b2, const INTSET& is)
 {
     bdt_t out;
-    for (INTSET_ITR itr(is) ; itr.more() ; itr.next())
+    for (INTSET_ITR itr(is) ; itr.more() ; itr.next()) {
         out = b2.extrude(out, itr.current());
+    }
     return out;
 }
 
@@ -142,7 +143,9 @@ bdt_t bdt_anti_cube(BDT_MANAGER& b2, const INTSET& big, const INTSET& small)
 	    flawed = b2.extrude(flawed, itr.current());
 	} else if (itr.both()) {
 	    if (any_flaws) {
-		flawed = b2.unionize(perfect, b2.extrude(flawed, itr.current()));
+		flawed = b2.unionize(
+		    perfect,
+		    b2.extrude(flawed, itr.current()));
 	    } else {
 		any_flaws = true;
 		flawed = perfect;
@@ -237,4 +240,23 @@ void DDS_LOADER::load_some()
 	k++;
 	_itr.next();
     }
+}
+
+/////////////////
+
+std::string bdt_to_string(BDT_MANAGER& b2, bdt_t bdt)
+{
+    bool first = true;
+    std::vector<INTSET> cubes = b2.get_cubes(bdt);
+    std::vector<INTSET>::const_iterator itr;
+    std::string out = "{";
+
+    for (itr=cubes.begin() ; itr != cubes.end() ; itr++) {
+        if (first)
+            first = false;
+        else
+            out += '/';
+        out += intset_to_string(*itr);
+    }
+    return out + '}';
 }

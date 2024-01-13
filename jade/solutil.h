@@ -3,6 +3,7 @@
 
 #include <utility>
 #include <map>
+#include <string>
 #include "bdt.h"
 #include "intset.h"
 #include "problem.h"
@@ -25,6 +26,7 @@ bool all_can_win(const PROBLEM& problem, const STATE& state,
 bdt_t set_to_atoms(BDT_MANAGER& b2, const INTSET& is);
 bdt_t set_to_cube(BDT_MANAGER& b2, const INTSET& is);
 bdt_t bdt_anti_cube(BDT_MANAGER& b2, const INTSET& big, const INTSET& small);
+std::string bdt_to_string(BDT_MANAGER& b2, bdt_t bdt);
 
 ///////////
 

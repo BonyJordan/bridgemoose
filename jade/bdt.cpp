@@ -30,13 +30,13 @@ void BDT_MANAGER::get_map_sizes(size_t sizes[MAP_NUM]) const
 
 bdt_t BDT_MANAGER::atom(bdt_var_t var)
 {
-    return make(var, 0, 0);
+    return make(var, null(), null());
 }
 
 
 bdt_t BDT_MANAGER::cube(const INTSET& is)
 {
-    bdt_t out = 0;
+    bdt_t out;
     for (INTSET_ITR itr(is) ; itr.more() ; itr.next())
 	out = extrude(out, itr.current());
     return out;
@@ -48,7 +48,7 @@ bdt_t BDT_MANAGER::make(bdt_var_t var, bdt_t avec, bdt_t sans)
     BDT_NODE node(var, avec, sans);
     std::map<BDT_NODE, bdt_t>::iterator f = _node_rmap.find(node);
     if (f == _node_rmap.end()) {
-	bdt_t key = _nodes.size();
+	bdt_t key = bdt_t::from(_nodes.size());
 	_nodes.push_back(node);
 	_node_rmap[node] = key;
 	return key;
@@ -60,9 +60,9 @@ bdt_t BDT_MANAGER::make(bdt_var_t var, bdt_t avec, bdt_t sans)
 
 bdt_t BDT_MANAGER::unionize(bdt_t a, bdt_t b)
 {
-    if (a == 0)
+    if (a.is_null())
 	return b;
-    if (b == 0)
+    if (b.is_null())
 	return a;
     if (a == b)
 	return a;
@@ -73,8 +73,8 @@ bdt_t BDT_MANAGER::unionize(bdt_t a, bdt_t b)
 	return f->second;
     }
 
-    const BDT_NODE& an = _nodes[a];
-    const BDT_NODE& bn = _nodes[b];
+    BDT_NODE an = _nodes[a.get()];
+    BDT_NODE bn = _nodes[b.get()];
     bdt_t out;
 
     if (an.var() < bn.var()) {
@@ -96,8 +96,8 @@ bdt_t BDT_MANAGER::unionize(bdt_t a, bdt_t b)
 
 bdt_t BDT_MANAGER::intersect(bdt_t a, bdt_t b)
 {
-    if (a == 0 || b == 0)
-	return 0;
+    if (a.is_null() || b.is_null())
+	return null();
     if (a == b)
 	return a;
 
@@ -107,8 +107,8 @@ bdt_t BDT_MANAGER::intersect(bdt_t a, bdt_t b)
 	return f->second;
     }
 
-    const BDT_NODE& an = _nodes[a];
-    const BDT_NODE& bn = _nodes[b];
+    BDT_NODE an = _nodes[a.get()];
+    BDT_NODE bn = _nodes[b.get()];
     bdt_t out;
 
     if (an.var() < bn.var()) {
@@ -128,16 +128,18 @@ bdt_t BDT_MANAGER::intersect(bdt_t a, bdt_t b)
 
 bdt_t BDT_MANAGER::extrude(bdt_t key, bdt_var_t var)
 {
-    if (key == 0) {
-	return make(var, 0, 0);
+    if (key.is_null()) {
+	return make(var, null(), null());
     }
 
     BDT_VAR_KEY vk(var, key);
     BDT_VAR_MAP::iterator f = _extrude_map.find(vk);
-    if (f != _extrude_map.end())
+    if (f != _extrude_map.end()) {
 	return f->second;
+    }
 
-    const BDT_NODE& n = _nodes[key];
+    jassert(key.in_range(_nodes.size()));
+    BDT_NODE n = _nodes[key.get()];
     bdt_t out;
     if (n.var() < var) {
 	bdt_t new_avec = extrude(n.avec(), var);
@@ -156,12 +158,12 @@ bdt_t BDT_MANAGER::extrude(bdt_t key, bdt_var_t var)
 
 bdt_t BDT_MANAGER::require(bdt_t key, bdt_var_t var)
 {
-    const BDT_NODE& node = _nodes[key];
+    BDT_NODE node = _nodes[key.get()];
     if (node.var() == var) {
 	bdt_t out = make(node.var(), node.avec(), node.avec());
 	return out;
     } else if (node.var() > var) {
-	return 0;
+	return null();
     }
 
     BDT_VAR_KEY vk(var, key);
@@ -173,7 +175,7 @@ bdt_t BDT_MANAGER::require(bdt_t key, bdt_var_t var)
     bdt_t sans_key = require(node.sans(), var);
 
     bdt_t out;
-    if (avec_key == 0) {
+    if (avec_key.is_null()) {
 	out = sans_key;
     } else {
 	out = make(node.var(), avec_key, sans_key);
@@ -185,10 +187,10 @@ bdt_t BDT_MANAGER::require(bdt_t key, bdt_var_t var)
 
 bdt_t BDT_MANAGER::remove(bdt_t key, bdt_var_t var)
 {
-    if (key == 0)
+    if (key.is_null())
 	return key;
 
-    const BDT_NODE& node = _nodes[key];
+    BDT_NODE node = _nodes[key.get()];
     if (node.var() == var)
 	return node.sans();
     else if (node.var() > var)
@@ -209,23 +211,22 @@ bdt_t BDT_MANAGER::remove(bdt_t key, bdt_var_t var)
 
 BDT_NODE BDT_MANAGER::expand(bdt_t key) const
 {
-    jassert(key > 0);
-    jassert(key < _nodes.size());
-    return _nodes[key];
+    jassert(key.in_range(_nodes.size()));
+    return _nodes[key.get()];
 }
 
 
 bool BDT_MANAGER::contains(bdt_t key, const INTSET& is)
 {
     for (INTSET_ITR itr(is) ; itr.more() ; itr.next()) {
-	while (key != 0 && _nodes[key].var() < (bdt_var_t)itr.current()) {
-	    key = _nodes[key].sans();
+	while (!key.is_null() && _nodes[key.get()].var() < (bdt_var_t)itr.current()) {
+	    key = _nodes[key.get()].sans();
 	}
 
-	if (key == 0 || _nodes[key].var() > (bdt_var_t)itr.current())
+	if (key.is_null() || _nodes[key.get()].var() > (bdt_var_t)itr.current())
 	    return false;
 
-	key = _nodes[key].avec();
+	key = _nodes[key.get()].avec();
     }
     return true;
 }
@@ -235,7 +236,7 @@ std::vector<INTSET> BDT_MANAGER::get_cubes(bdt_t key)
 {
     std::vector<INTSET> out;
     INTSET head;
-    bdt_t seen = 0;
+    bdt_t seen = null();
     get_cubes_inner(key, out, head, seen, true);
     return out;
 }
@@ -244,7 +245,7 @@ std::vector<INTSET> BDT_MANAGER::get_cubes(bdt_t key)
 void BDT_MANAGER::get_cubes_inner(bdt_t key, std::vector<INTSET>& out,
     INTSET head, bdt_t seen, bool stoppable)
 {
-    if (key == 0) {
+    if (key.is_null()) {
 	if (stoppable) {
 	    out.push_back(head);
 	}
@@ -254,7 +255,7 @@ void BDT_MANAGER::get_cubes_inner(bdt_t key, std::vector<INTSET>& out,
     if (subset_of(key, seen))
         return;
 
-    const BDT_NODE& node = _nodes[key];
+    BDT_NODE node = _nodes[key.get()];
 
     if (node.avec() == node.sans()) {
 	head.insert(node.var());
@@ -279,8 +280,8 @@ void BDT_MANAGER::get_cubes_inner(bdt_t key, std::vector<INTSET>& out,
 INTSET BDT_MANAGER::get_used_vars(bdt_t key) const
 {
     INTSET out;
-    while (key != 0) {
-	const BDT_NODE& node = _nodes[key];
+    while (!key.is_null()) {
+	BDT_NODE node = _nodes[key.get()];
 	out.insert(node.var());
 	key = node.sans();
     }
@@ -370,7 +371,7 @@ bool BDT_MANAGER::read_from_file(const char* filename)
     for (unsigned i=1 ; i<sz ; i++) {
 	if (!read_thing(_nodes[i], fp, filename))
 	    return false;
-	_node_rmap[_nodes[i]] = (bdt_t)i;
+	_node_rmap[_nodes[i]] = bdt_t::from(i);
     }
     fclose(fp);
     return true;

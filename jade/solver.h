@@ -78,6 +78,4 @@ SOLVER_STATS(A)
     std::map<std::string, stat_t> get_stats() const;
 };
 
-std::string bdt_to_string(BDT_MANAGER& b2, bdt_t bdt);
-
 #endif // _SOLVER_H_

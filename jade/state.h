@@ -58,6 +58,7 @@ class STATE
     std::string to_string() const;
 
     hand64_t to_key() const;
+    hand64_t to_key2() const;
 
     int num_played() const { return _num_played; }
     CARD history(int i) const

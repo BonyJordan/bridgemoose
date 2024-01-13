@@ -7,6 +7,6 @@
 #define jassert(e)  \
     ((void) ((e) ? ((void)0) : __jassert (#e, __FILE__, __LINE__)))
 #define __jassert(e, file, line) \
-    ((void)printf ("%s:%d: failed jassertion `%s'\n", file, line, e), abort())
+    ((void)fprintf (stderr, "%s:%d: failed jassertion `%s'\n", file, line, e), abort())
 
 #endif // _JASSERT_H_

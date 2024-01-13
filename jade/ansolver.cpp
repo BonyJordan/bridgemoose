@@ -22,24 +22,41 @@ ANSOLVER::~ANSOLVER()
 
 bool ANSOLVER::eval(const std::vector<CARD>& plays_so_far, const INTSET& dids)
 {
+    const bool debug = false;
     std::pair<STATE, INTSET> sd = load_from_history(_p, plays_so_far, dids);
-    if (!is_target_achievable(_p, sd.first))
+    if (!is_target_achievable(_p, sd.first)) {
+	if (debug)
+	    fprintf(stderr, "ANSOLVER::eval -> target not achievable\n");
 	return false;
+    }
     _dds_calls++;
-    if (!all_can_win(_p, sd.first, sd.second))
+    if (!all_can_win(_p, sd.first, sd.second)) {
+	if (debug)
+	    fprintf(stderr, "ANSOLVER::eval -> not all can win\n");
 	return false;
+    }
     return eval(sd.first, sd.second);
 }
 
 
 bool ANSOLVER::eval(const std::vector<CARD>& plays_so_far)
 {
+    const bool debug = false;
     std::pair<STATE, INTSET> sd = load_from_history(_p, plays_so_far);
-    if (!is_target_achievable(_p, sd.first))
+    if (!is_target_achievable(_p, sd.first)) {
+	if (debug)
+	    fprintf(stderr, "ANSOLVER::eval -> target not achievable\n");
 	return false;
+    }
     _dds_calls++;
-    if (!all_can_win(_p, sd.first, sd.second))
+    if (!all_can_win(_p, sd.first, sd.second)) {
+	if (debug)
+	    fprintf(stderr, "ANSOLVER::eval -> not all can win\n");
 	return false;
+    }
+    if (debug) {
+	fprintf(stderr, "ANSOLVER::eval -> got a state and dids, let's go!\n");
+    }
     return eval(sd.first, sd.second);
 }
 
@@ -49,17 +66,18 @@ bool ANSOLVER::eval(STATE& state, const INTSET& dids)
     _node_visits++;
 
     const bool debug = false;
+
     if (debug)
-	printf("ANSOLVER::eval with [%s]\n", state.to_string().c_str());
+	fprintf(stderr, "ANSOLVER::eval with [%s] aka %016llx\n", state.to_string().c_str(), state.played());
 
     if (state.ns_tricks() >= _p.target)
 	return true;
     else if (handbits_count(_p.north) - state.ew_tricks() < _p.target) {
 	// this never happens.  we think.
-	printf("ANSOLVER: I thought this never happened!\n");
-	printf("handbits=(%d)  ew_tx=%d  p.target=%d\n",
+	fprintf(stderr, "ANSOLVER: I thought this never happened!\n");
+	fprintf(stderr, "handbits=(%d)  ew_tx=%d  p.target=%d\n",
 	    handbits_count(_p.north), state.ew_tricks(), _p.target);
-	printf("state=[%s]\n", state.to_string().c_str());
+	fprintf(stderr, "state=[%s]\n", state.to_string().c_str());
 	jassert(false);
     }
     bool new_trick = state.new_trick();
@@ -71,13 +89,13 @@ bool ANSOLVER::eval(STATE& state, const INTSET& dids)
 	    _cache_hits++;
 	    if (_b2.contains(f->second.lower, dids)) {
 		if (debug)
-		    printf("ANSOLVER::eval cache hit True\n"); 
+		    fprintf(stderr, "ANSOLVER::eval cache hit True\n"); 
 		_cache_cutoffs++;
 		return true;
 	    }
 	    if (!_b2.contains(f->second.upper, dids)) {
 		if (debug)
-		    printf("ANSOLVER::eval cache hit False\n"); 
+		    fprintf(stderr, "ANSOLVER::eval cache hit False\n"); 
 		_cache_cutoffs++;
 		return false;
 	    }
@@ -93,8 +111,8 @@ bool ANSOLVER::eval(STATE& state, const INTSET& dids)
 	result = doit_ns(state, dids);
 
     if (debug)
-	printf("ANSOLVER::eval [%s] => %d\n", state.to_string().c_str(),
-	    result);
+	fprintf(stderr, "ANSOLVER::eval [%s] => %d\n",
+	    state.to_string().c_str(), result);
 
     if (state.new_trick()) {
 	TTMAP::iterator f = _tt.find(state_key);
@@ -103,14 +121,33 @@ bool ANSOLVER::eval(STATE& state, const INTSET& dids)
 	    _cache_size++;
 	}
 
-	if (result)
+	if (result) {
+	    bdt_t x1 = _tt[state_key].lower;
+	    bdt_t x2 = set_to_cube(_b2, dids);
+
 	    _tt[state_key].lower = _b2.unionize(
 		_tt[state_key].lower,
 		set_to_cube(_b2, dids));
-	else
+
+	    if (!_b2.contains(_tt[state_key].lower, dids)) {
+		fprintf(stderr, "Here we are, unhappy as a pig, dids=%s\n",
+		    intset_to_string(dids).c_str());
+		fprintf(stderr, "x1 = %s\n", bdt_to_string(_b2, x1).c_str());
+		fprintf(stderr, "x2 = %s\n", bdt_to_string(_b2, x2).c_str());
+		fprintf(stderr, "now = %s\n", bdt_to_string(_b2, _tt[state_key].lower).c_str());
+	    }
+	    //jassert(_b2.contains(_tt[state_key].lower, dids));
+	} else {
 	    _tt[state_key].upper = _b2.intersect(
 		_tt[state_key].upper,
 		bdt_anti_cube(_b2, _all_dids, dids));
+
+	    if (_b2.contains(_tt[state_key].upper, dids)) {
+		fprintf(stderr, "Here we are, unhappy as a DOG, dids=%s\n",
+		    intset_to_string(dids).c_str());
+	    }
+	    //jassert(!_b2.contains(_tt[state_key].upper, dids));
+	}
     }
     return result;
 }
@@ -118,6 +155,8 @@ bool ANSOLVER::eval(STATE& state, const INTSET& dids)
 
 bool ANSOLVER::doit_ew(STATE& state, const INTSET& dids)
 {
+    const bool debug = false;
+
     UPMAP plays = find_usable_plays_ew(_p, state, dids);
     UPMAP::const_iterator itr;
 
@@ -125,12 +164,20 @@ bool ANSOLVER::doit_ew(STATE& state, const INTSET& dids)
     {
 	CARD card = itr->first;
 	const INTSET& sub_dids = itr->second;
-	if (sub_dids.size() == 1)
+	if (sub_dids.size() == 1) {
+	    if (debug)
+		fprintf(stderr, "ANSOLVER::doit_ew; card=%s, dids=1\n",
+		    card_to_string(card).c_str());
 	    continue;
+	}
 
 	state.play(card);
 	bool result = eval(state, sub_dids);
 	state.undo();
+
+	if (debug)
+	    fprintf(stderr, "ANSOLVER::doit_ew; card=%s, result=%d\n",
+		card_to_string(card).c_str(), result);
 
 	if (!result)
 	    return false;
@@ -141,14 +188,24 @@ bool ANSOLVER::doit_ew(STATE& state, const INTSET& dids)
 
 bool ANSOLVER::doit_ns(STATE& state, const INTSET& dids)
 {
+    const bool debug = false;
+
     std::vector<CARD> usable_plays = find_usable_plays_ns(state, dids);
     std::vector<CARD>::const_iterator itr;
+
+    if (debug)
+	fprintf(stderr, "ANSOLVER::doit_ns -> #usable_plays = %zu\n",
+	    usable_plays.size());
 
     for (itr = usable_plays.begin() ; itr != usable_plays.end() ; itr++)
     {
 	state.play(*itr);
 	bool result = eval(state, dids);
 	state.undo();
+
+	if (debug)
+	    fprintf(stderr, "ANSOLVER::doit_ns -> tried %s got %d\n",
+		card_to_string(*itr).c_str(), result);
 
 	if (result)
 	    return true;
@@ -160,6 +217,7 @@ bool ANSOLVER::doit_ns(STATE& state, const INTSET& dids)
 std::vector<CARD> ANSOLVER::find_usable_plays_ns(const STATE& state,
     const INTSET& dids)
 {
+    const bool debug = false;
     _dds_calls++;
 
     std::map<int, hand64_t> dds_wins = _dds_cache.solve_many(state, dids);
@@ -167,8 +225,18 @@ std::vector<CARD> ANSOLVER::find_usable_plays_ns(const STATE& state,
     std::map<CARD, size_t> counts;
 
     hand64_t all = ALL_CARDS_BITS;
-    for (itr = dds_wins.begin() ; itr != dds_wins.end() ; itr++)
+    for (itr = dds_wins.begin() ; itr != dds_wins.end() ; itr++) {
+	if (debug) {
+	    fprintf(stderr, "ANSOLVER::find_usable_plays_ns; did=%d cards=%s\n",
+		itr->first, hand_to_string(itr->second).c_str());
+	}
 	all &= itr->second;
+    }
+
+    if (debug) {
+	fprintf(stderr, "ANSOLVER::find_usable_plays_ns; yay=%s\n",
+	    hand_to_string(all).c_str());
+    }
 
     std::vector<CARD> out;
     while (all) {

@@ -126,7 +126,7 @@ LUBDT SOLVER::doit(STATE& state, const INTSET& dids, LUBDT search_bounds)
 	jassert(false);
     }
 
-    LUBDT node_bounds(0, _all_cube);
+    LUBDT node_bounds(_b2.null(), _all_cube);
     bool new_trick = state.new_trick();
     hand64_t state_key = state.to_key();
 
@@ -158,8 +158,8 @@ LUBDT SOLVER::doit(STATE& state, const INTSET& dids, LUBDT search_bounds)
         }
     }
 
-    search_bounds.lower |= node_bounds.lower;
-    search_bounds.upper &= node_bounds.upper;
+    search_bounds.lower = _b2.unionize(search_bounds.lower, node_bounds.lower);
+    search_bounds.upper = _b2.intersect(search_bounds.upper, node_bounds.upper);
     if (_b2.subset_of(search_bounds.upper, search_bounds.lower))
         return node_bounds;
 
@@ -273,9 +273,9 @@ LUBDT SOLVER::doit_ns(STATE& state, const INTSET& dids, LUBDT search_bounds,
 	result.lower = reduce_bdt(_b2, result.lower, dids, sub_dids);
 	result.upper = reduce_bdt(_b2, result.upper, dids, sub_dids);
 
-        search_bounds.lower |= result.lower;
-        node_bounds.lower |= result.lower;
-        cum_upper |= result.upper;
+        search_bounds.lower = _b2.unionize(search_bounds.lower, result.lower);
+	node_bounds.lower = _b2.unionize(node_bounds.lower, result.lower);
+        cum_upper = _b2.unionize(cum_upper, result.upper);
 
         // Did we cutoff?
         if (_b2.subset_of(search_bounds.upper, search_bounds.lower)) {
@@ -283,7 +283,7 @@ LUBDT SOLVER::doit_ns(STATE& state, const INTSET& dids, LUBDT search_bounds,
         }
     }
 
-    node_bounds.upper &= cum_upper;
+    node_bounds.upper = _b2.intersect(node_bounds.upper, cum_upper);
     // This will be true eventually, but not while doit_ew is empty!
     //jassert((search_bounds.upper & cum_upper).subset_of(search_bounds.lower));
     return node_bounds;
@@ -360,24 +360,4 @@ void SOLVER::track_dds(const STATE& state, const INTSET& dids)
 	    _dds_tracker.insert(dk);
 	}
     }
-}
-
-
-//////////////
-
-std::string bdt_to_string(BDT_MANAGER& b2, bdt_t bdt)
-{
-    bool first = true;
-    std::vector<INTSET> cubes = b2.get_cubes(bdt);
-    std::vector<INTSET>::const_iterator itr;
-    std::string out = "{";
-
-    for (itr=cubes.begin() ; itr != cubes.end() ; itr++) {
-        if (first)
-            first = false;
-        else
-            out += '/';
-        out += intset_to_string(*itr);
-    }
-    return out + '}';
 }
