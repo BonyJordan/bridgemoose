@@ -6,6 +6,7 @@
 #include "lubdt.h"
 #include "solutil.h"
 #include "ddscache.h"
+#include "sthash.h"
 
 typedef std::map<hand64_t, LUBDT> TTMAP;
 typedef unsigned long stat_t;
@@ -25,11 +26,12 @@ class ANSOLVER
     const PROBLEM& _p;
 
     // helper info
-    BDT_MANAGER _b2;
-    DDS_CACHE	_dds_cache;
-    INTSET	_all_dids;
-    bdt_t       _all_cube;
-    TTMAP       _tt;
+    STATE_HASHER _hasher;
+    BDT_MANAGER  _b2;
+    DDS_CACHE	 _dds_cache;
+    INTSET	 _all_dids;
+    bdt_t        _all_cube;
+    TTMAP        _tt;
 
     // stats
 #define A(x)	stat_t _ ## x;

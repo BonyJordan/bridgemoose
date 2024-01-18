@@ -4,7 +4,7 @@
 
 
 ANSOLVER::ANSOLVER(const PROBLEM& problem) :
-    _p(problem),_dds_cache(problem)
+    _p(problem),_hasher(problem),_dds_cache(problem)
 {
     jassert(_p.wests.size() == _p.easts.size());
     _all_dids = INTSET::full_set((int)_p.wests.size());
@@ -81,7 +81,8 @@ bool ANSOLVER::eval(STATE& state, const INTSET& dids)
 	jassert(false);
     }
     bool new_trick = state.new_trick();
-    hand64_t state_key = state.to_key();
+    //hand64_t state_key = state.to_key();
+    hand64_t state_key = _hasher.hash(state);
 
     if (new_trick) {
 	TTMAP::iterator f = _tt.find(state_key);
@@ -368,7 +369,8 @@ void ANSOLVER::fill_tt_inner(std::map<hand64_t, bdt_t>& visited, STATE& state,
     const INTSET& dids)
 {
     if (state.new_trick()) {
-	hand64_t key = state.to_key();
+	//hand64_t key = state.to_key();
+	hand64_t key = _hasher.hash(state);
 	std::map<hand64_t, bdt_t>::iterator f = visited.find(key);
 	if (f != visited.end()) {
 	    if (_b2.contains(f->second, dids))
