@@ -16,6 +16,7 @@ module_jade = setuptools.Extension('bridgemoose.jade',
         'solutil.cpp',
         'solver.cpp',
         'state.cpp',
+        'sthash.cpp',
         'xxhash.cpp',
     ]])
 
