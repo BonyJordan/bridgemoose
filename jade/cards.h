@@ -30,6 +30,9 @@ extern const char RANK_CHAR[];
 extern const char SUIT_CHAR[];
 extern const char DIR_CHAR[];
 inline hand64_t suit_bits(int suit) { return 0x7ffcll << (16*suit); }
+inline uint16_t hand_suit_bits(hand64_t hand, int suit) {
+    return (hand >> (16*suit)) & 0x7ffc;
+}
 int rank_bit_to_index(unsigned int bit);
 CARD handbit_to_card(hand64_t bit);
 hand64_t card_to_handbit(const CARD& card);

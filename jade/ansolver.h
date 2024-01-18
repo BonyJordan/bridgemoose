@@ -41,6 +41,8 @@ ANSOLVER_STATS(A)
 
     std::vector<CARD> find_usable_plays_ns(const STATE& state,
 	const INTSET& dids);
+    void fill_tt_inner(std::map<hand64_t, bdt_t>& visited, STATE& state,
+	const INTSET& dids);
 
   public:
     ANSOLVER(const PROBLEM& p);
@@ -55,6 +57,8 @@ ANSOLVER_STATS(A)
 
     bool write_to_files(const char* bdt_file, const char* tt_file);
     bool read_from_files(const char* bdt_file, const char* tt_file);
+
+    void fill_tt(const std::vector<CARD>& plays_so_far);
 };
 
 #endif // _ANSOLVER_H_

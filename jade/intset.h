@@ -30,6 +30,9 @@ class INTSET
 
     static INTSET combine(const INTSET& a, const INTSET& b);
     static INTSET full_set(int n);
+
+    bool subset_of(const INTSET& bigger) const;
+    bool superset_of(const INTSET& bigger) const;
 };
 
 

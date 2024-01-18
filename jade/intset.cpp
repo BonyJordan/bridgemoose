@@ -73,6 +73,23 @@ bool INTSET::operator==(const INTSET& a) const
     return true;
 }
 
+bool INTSET::subset_of(const INTSET& other) const
+{
+    for (INTSET_PAIR_ITR itr(*this, other) ; itr.more() ; itr.next()) {
+	if (itr.a_only())
+	    return false;
+    }
+    return true;
+}
+
+bool INTSET::superset_of(const INTSET& other) const
+{
+    for (INTSET_PAIR_ITR itr(*this, other) ; itr.more() ; itr.next()) {
+	if (itr.b_only())
+	    return false;
+    }
+    return true;
+}
 
 ////////////////
 

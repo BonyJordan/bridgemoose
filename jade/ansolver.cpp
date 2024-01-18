@@ -349,3 +349,69 @@ bool ANSOLVER::read_from_files(const char* bdt_file, const char* tt_file)
     fclose(fp);
     return false;
 }
+
+
+void ANSOLVER::fill_tt(const std::vector<CARD>& plays_so_far)
+{
+    const bool debug = false;
+    std::pair<STATE, INTSET> sd = load_from_history(_p, plays_so_far);
+    jassert(is_target_achievable(_p, sd.first));
+    _dds_calls++;
+    jassert(all_can_win(_p, sd.first, sd.second));
+
+    std::map<hand64_t, bdt_t> visited;
+    fill_tt_inner(visited, sd.first, sd.second);
+}
+
+
+void ANSOLVER::fill_tt_inner(std::map<hand64_t, bdt_t>& visited, STATE& state,
+    const INTSET& dids)
+{
+    if (state.new_trick()) {
+	hand64_t key = state.to_key();
+	std::map<hand64_t, bdt_t>::iterator f = visited.find(key);
+	if (f != visited.end()) {
+	    if (_b2.contains(f->second, dids))
+		return;
+	    else
+		f->second = _b2.unionize(f->second, _b2.cube(dids));
+	} else {
+	    visited[key] = _b2.cube(dids);
+	}
+    }
+
+    bool res = eval(state, dids);
+    if (!res)
+	return;
+
+    if (state.to_play_ns())
+    {
+	std::vector<CARD> usable_plays = find_usable_plays_ns(state, dids);
+	std::vector<CARD>::const_iterator itr;
+
+	for (itr = usable_plays.begin() ; itr != usable_plays.end() ; itr++)
+	{
+	    state.play(*itr);
+	    fill_tt_inner(visited, state, dids);
+	    state.undo();
+	}
+    }
+    else
+    {
+	// state.to_play_ew()
+	UPMAP plays = find_usable_plays_ew(_p, state, dids);
+	UPMAP::const_iterator itr;
+
+	for (itr = plays.begin() ; itr != plays.end() ; itr++)
+	{
+	    CARD card = itr->first;
+	    const INTSET& sub_dids = itr->second;
+	    if (sub_dids.size() == 1)
+		continue;
+
+	    state.play(card);
+	    fill_tt_inner(visited, state, sub_dids);
+	    state.undo();
+	}
+    }
+}
