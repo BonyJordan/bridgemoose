@@ -2,6 +2,7 @@
 #define _ANSOLVER_H_
 
 #include <map>
+#include <string>
 #include "cards.h"
 #include "lubdt.h"
 #include "solutil.h"
@@ -57,10 +58,13 @@ ANSOLVER_STATS(A)
     const PROBLEM& problem() const { return _p; }
     std::map<std::string, stat_t> get_stats() const;
 
-    bool write_to_files(const char* bdt_file, const char* tt_file);
-    bool read_from_files(const char* bdt_file, const char* tt_file);
+    // both return "" in case of no error, otherwise a message
+    std::string write_to_files(const char* bdt_file, const char* tt_file);
+    std::string read_from_files(const char* bdt_file, const char* tt_file);
 
     void fill_tt(const std::vector<CARD>& plays_so_far);
+
+    void compare_tt(const ANSOLVER& b) const;
 };
 
 #endif // _ANSOLVER_H_

@@ -110,6 +110,9 @@ uint64_t STATE_HASHER::hash(const STATE& state) const
     {
 	out <<= 13;
 	uint16_t suit_played = hand_suit_bits(state.played(), suit);
+	jassert((suit_played & 0x3) == 0);
+	suit_played >>= 2;
+	jassert(suit_played < (1<<13));
 	out |= _tbl[suit][suit_played];
 
 	so_key *= 3;
@@ -134,4 +137,47 @@ uint64_t STATE_HASHER::hash(const STATE& state) const
     out |= state.ew_tricks();
 
     return out;
+}
+
+
+//static
+std::string STATE_HASHER::hash_to_string(uint64_t hash)
+{
+    int ew_trix = hash & 0x7;
+    hash >>= 3;
+    int turn = hash & 0x3;
+    hash >>= 2;
+    int so_key = hash & 0x7f;
+    hash >>= 7;
+
+    int showout_status[4];
+    char sss[4][16];
+
+    for (int i=0 ; i<4 ; i++) {
+	int suit = 3-i;
+	showout_status[suit] = so_key % 3;
+	so_key /= 3;
+
+	int played = (hash & 0x1fff);
+	char* p = sss[suit];
+	const char* ranks = "23456789TJQKA";
+	for (int j=0 ; j<13 ; j++)
+	    if ((1<<j) & played)
+		*p++ = ranks[j];
+	*p = 0;
+
+	hash >>= 13;
+    }
+
+    char buf[200];
+    const char* dirs = "WNES";
+    const char* sochar = "-EW";
+    snprintf(buf, sizeof buf, "ew=%d t=%c so(%c,%c,%c,%c) pl=%s/%s/%s/%s",
+	ew_trix, dirs[turn],
+	sochar[showout_status[3]],
+	sochar[showout_status[2]],
+	sochar[showout_status[1]],
+	sochar[showout_status[0]],
+	sss[3], sss[2], sss[1], sss[0]);
+    return buf;
 }

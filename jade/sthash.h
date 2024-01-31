@@ -3,6 +3,7 @@
 
 #include "problem.h"
 #include "state.h"
+#include <string>
 
 class STATE_HASHER
 {
@@ -19,6 +20,7 @@ class STATE_HASHER
     ~STATE_HASHER();
 
     uint64_t hash(const STATE& state) const;
+    static std::string hash_to_string(uint64_t h);
 };
 
 #endif // _STHASH_H_

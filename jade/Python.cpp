@@ -536,9 +536,9 @@ ANSolver_write_to_files(PyObject* self, PyObject* args)
     if (!PyArg_ParseTuple(args, "ss", &bdt_file_name, &tt_file_name))
 	return NULL;
 
-    bool res = so->ansolver->write_to_files(bdt_file_name, tt_file_name);
-    if (!res) {
-	PyErr_SetNone(PyExc_OSError);
+    std::string res = so->ansolver->write_to_files(bdt_file_name, tt_file_name);
+    if (res != "") {
+	PyErr_SetString(PyExc_OSError, res.c_str());
 	return NULL;
     }
 
@@ -556,9 +556,10 @@ ANSolver_read_from_files(PyObject* self, PyObject* args)
     if (!PyArg_ParseTuple(args, "ss", &bdt_file_name, &tt_file_name))
 	return NULL;
 
-    bool res = so->ansolver->read_from_files(bdt_file_name, tt_file_name);
-    if (!res) {
-	PyErr_SetNone(PyExc_OSError);
+    std::string res =
+	so->ansolver->read_from_files(bdt_file_name, tt_file_name);
+    if (res != "") {
+	PyErr_SetString(PyExc_OSError, res.c_str());
 	return NULL;
     }
 
@@ -585,6 +586,29 @@ ANSolver_fill_tt(PyObject* self, PyObject* args)
     return Py_None;
 }
 
+
+static PyObject*
+ANSolver_compare_tt(PyObject* self, PyObject* args)
+{
+    ANSolver_Object* left = (ANSolver_Object*)self;
+    PyTypeObject* type = Py_TYPE(left);
+    if (type == NULL)
+	return NULL;
+
+    ANSolver_Object* right = NULL;
+    if (!PyArg_ParseTuple(args, "O!", type, &right)) {
+	return NULL;
+    }
+
+    printf("JORDAN: about to call compare_tt\n");
+
+    left->ansolver->compare_tt(*right->ansolver);
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+
 static PyMethodDef Solver_RegularMethods[] = {
     { "eval", Solver_eval, METH_VARARGS, "Return a JBDD encoding the existence of play lines which cover various subsets of west/east possibilities" },
     { "stats", Solver_stats, METH_VARARGS, "Return a dict of statistics" },
@@ -594,9 +618,10 @@ static PyMethodDef Solver_RegularMethods[] = {
 static PyMethodDef ANSolver_RegularMethods[] = {
     { "eval", ANSolver_eval, METH_VARARGS, "Compute the existence of a play line which covers all west/east possibilities.  Takes as input a history of card plays and an optional list of deal ids." },
     { "stats", ANSolver_stats, METH_VARARGS, "Return a dict of statistics" },
-    { "write_to_files", ANSolver_write_to_files, METH_VARARGS, "Save search cache to two files" },
-    { "read_from_files", ANSolver_read_from_files, METH_VARARGS, "Read search cache from two files" },
+    { "write_to_files", ANSolver_write_to_files, METH_VARARGS, "Save search cache to two files.  Takes as input a .bdt file name and a .tt file name" },
+    { "read_from_files", ANSolver_read_from_files, METH_VARARGS, "Read search cache from files.  Takes as input a .bdt file name and a .tt file name" },
     { "fill_tt", ANSolver_fill_tt, METH_VARARGS, "Forcibly fill transition table with all states.  Takes as input a history of card plays." },
+    { "compare_tt", ANSolver_compare_tt, METH_VARARGS, "This is a stupid method.Takes as input two ANSolvers." },
     { NULL, NULL, 0,  NULL },
 };
 
@@ -614,7 +639,8 @@ static PyTypeObject Solver_Type = {
     .tp_dealloc = (destructor)Solver_dealloc,
 };
 
-static PyTypeObject ANSolver_Type = {
+//static
+PyTypeObject ANSolver_Type = {
     PyVarObject_HEAD_INIT(NULL, 0)
     .tp_name = "bridgemoose.jade.ANSolver",
     .tp_basicsize = sizeof(ANSolver_Object),

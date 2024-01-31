@@ -8,7 +8,7 @@ ANSOLVER::ANSOLVER(const PROBLEM& problem) :
 {
     jassert(_p.wests.size() == _p.easts.size());
     _all_dids = INTSET::full_set((int)_p.wests.size());
-    _all_cube = set_to_cube(_b2, _all_dids);
+    _all_cube = _b2.null();
 #define A(x)	_ ## x = 0;
     ANSOLVER_STATS(A)
 #undef A
@@ -81,8 +81,14 @@ bool ANSOLVER::eval(STATE& state, const INTSET& dids)
 	jassert(false);
     }
     bool new_trick = state.new_trick();
-    //hand64_t state_key = state.to_key();
     hand64_t state_key = _hasher.hash(state);
+    if (state_key < 16) {
+	fprintf(stderr, "ANSOLVER: state_key is too small %llx\n", state_key);
+	fprintf(stderr, "ANSOLVER: desc: %s\n", STATE_HASHER::hash_to_string(state_key).c_str());
+
+	fprintf(stderr, "ANSOLVER: state: %s\n", state.to_string().c_str());
+	jassert(false);
+    }
 
     if (new_trick) {
 	TTMAP::iterator f = _tt.find(state_key);
@@ -118,6 +124,8 @@ bool ANSOLVER::eval(STATE& state, const INTSET& dids)
     if (state.new_trick()) {
 	TTMAP::iterator f = _tt.find(state_key);
 	if (f == _tt.end()) {
+	    if (_all_cube.is_null())
+		_all_cube = set_to_cube(_b2, _all_dids);
 	    _tt[state_key] = LUBDT(set_to_atoms(_b2, dids), _all_cube);
 	    _cache_size++;
 	}
@@ -255,6 +263,7 @@ std::map<std::string, stat_t> ANSOLVER::get_stats() const
 #define A(x)	out[# x] = _ ## x;
     ANSOLVER_STATS(A)
 #undef A
+    out["tt_size"] = (stat_t)_tt.size();
 
     return out;
 }
@@ -263,98 +272,96 @@ std::map<std::string, stat_t> ANSOLVER::get_stats() const
 
 static const uint32_t FILE_HEADER = 0xf136898;
 
-bool ANSOLVER::write_to_files(const char* bdt_file, const char* tt_file)
+std::string ANSOLVER::write_to_files(const char* bdt_file, const char* tt_file)
 {
-    if (!_b2.write_to_file(bdt_file))
-	return false;
+    std::string err = _b2.write_to_file(bdt_file);
+    if (err != "")
+	return err;
 
     FILE* fp = fopen(tt_file, "w");
     if (fp == NULL) {
-	perror(tt_file);
-	return false;
+	return oserr_str(tt_file);
     }
 
     if (fwrite(&FILE_HEADER, sizeof FILE_HEADER, 1, fp) != 1) {
-	perror(tt_file);
 	fclose(fp);
-	return false;
+	return oserr_str(tt_file);
     }
     uint32_t sz = _tt.size();
     if (fwrite(&sz, sizeof sz, 1, fp) != 1) {
-	perror(tt_file);
 	fclose(fp);
-	return false;
+	return oserr_str(tt_file);
     }
 
     for (TTMAP::const_iterator itr = _tt.begin() ; itr != _tt.end() ; itr++)
     {
 	if (fwrite(&*itr, sizeof *itr, 1, fp) != 1) {
-	    perror(tt_file);
 	    fclose(fp);
-	    return false;
+	    return oserr_str(tt_file);
 	}
     }
     fclose(fp);
-    return true;
+    return "";
 }
 
 
 template <class T>
-bool read_thing(T& thing, FILE* fp, const char* filename)
+std::string read_thing(T& thing, FILE* fp, const char* filename)
 {
     if (fread(&thing, sizeof thing, 1, fp) != 1) {
         if (feof(fp)) {
-            fprintf(stderr, "%s: Unexpected end of file\n", filename);
             fclose(fp);
-            return false;
+	    return std::string(filename) + ": Unexpected end of file";
         } else {
-            perror(filename);
             fclose(fp);
-            return false;
+            return oserr_str(filename);
         }
     }
-    return true;
+    return "";
 }
 
 
-bool ANSOLVER::read_from_files(const char* bdt_file, const char* tt_file)
+std::string ANSOLVER::read_from_files(const char* bdt_file, const char* tt_file)
 {
-    if (!_b2.read_from_file(bdt_file))
-	return false;
+    std::string err;
+    if ((err = _b2.read_from_file(bdt_file)) != "")
+	return err;
 
-    FILE* fp = fopen(tt_file, "w");
+    FILE* fp = fopen(tt_file, "r");
     if (fp == NULL) {
-	perror(tt_file);
-	return false;
+	return oserr_str(tt_file);
     }
 
     uint32_t u;
-    if (!read_thing(u, fp, tt_file)) {
-	return false;
+    if ((err = read_thing(u, fp, tt_file)) != "") {
+	return err;
     }
     if (u != FILE_HEADER) {
-	fprintf(stderr, "%s: missing header\n", tt_file);
 	fclose(fp);
-	return false;
+	return std::string(tt_file) + ": missing header";
     }
 
-    if (!read_thing(u, fp, tt_file)) {
-	return false;
+    if ((err = read_thing(u, fp, tt_file)) != "") {
+	return err;
     }
+    fprintf(stderr, "JORDAN: count of things to read: %u\n", u);
     for (uint32_t i=0 ; i<u ; i++) {
 	TTMAP::value_type v;
-	if (!read_thing(v, fp, tt_file))
-	    return false;
+	if ((err = read_thing(v, fp, tt_file)) != "")
+	    return err;
 	_tt.insert(v);
+	if ((i&-i) == i) {
+	    fprintf(stderr, "JORDAN: %u inserted %s  size=%zu\n",
+		i, hand_to_string(v.first).c_str(), _tt.size());
+	}
     }
     fclose(fp);
-    return false;
+    return "";
 }
 
 
 void ANSOLVER::fill_tt(const std::vector<CARD>& plays_so_far)
 {
-    const bool debug = false;
     std::pair<STATE, INTSET> sd = load_from_history(_p, plays_so_far);
     jassert(is_target_achievable(_p, sd.first));
     _dds_calls++;
@@ -369,7 +376,6 @@ void ANSOLVER::fill_tt_inner(std::map<hand64_t, bdt_t>& visited, STATE& state,
     const INTSET& dids)
 {
     if (state.new_trick()) {
-	//hand64_t key = state.to_key();
 	hand64_t key = _hasher.hash(state);
 	std::map<hand64_t, bdt_t>::iterator f = visited.find(key);
 	if (f != visited.end()) {
@@ -414,6 +420,20 @@ void ANSOLVER::fill_tt_inner(std::map<hand64_t, bdt_t>& visited, STATE& state,
 	    state.play(card);
 	    fill_tt_inner(visited, state, sub_dids);
 	    state.undo();
+	}
+    }
+}
+
+
+void ANSOLVER::compare_tt(const ANSOLVER& b) const
+{
+    TTMAP::const_iterator bitr;
+
+    for (bitr = b._tt.begin() ; bitr != b._tt.end() ; bitr++) {
+	const TTMAP::const_iterator f = _tt.find(bitr->first);
+	if (f == _tt.end()) {
+	    printf("Not in left: %016llx = %s\n", bitr->first,
+		STATE_HASHER::hash_to_string(bitr->first).c_str());
 	}
     }
 }
