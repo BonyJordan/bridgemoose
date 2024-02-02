@@ -409,12 +409,22 @@ void ANSOLVER::fill_tt_inner(std::map<hand64_t, bdt_t>& visited, STATE& state,
 	// state.to_play_ew()
 	UPMAP plays = find_usable_plays_ew(_p, state, dids);
 	UPMAP::const_iterator itr;
+	size_t max_len = 0;
+
+	for (itr = plays.begin() ; itr != plays.end() ; itr++)
+	    if (itr->second.size() > max_len)
+		max_len = itr->second.size();
+
+	if (max_len == 1)
+	    return;
 
 	for (itr = plays.begin() ; itr != plays.end() ; itr++)
 	{
 	    CARD card = itr->first;
 	    const INTSET& sub_dids = itr->second;
-	    if (sub_dids.size() == 1)
+	    /* if (sub_dids.size() == 1)
+		continue; */
+	    if (sub_dids.size() != max_len)
 		continue;
 
 	    state.play(card);
