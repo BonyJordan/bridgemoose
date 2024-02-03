@@ -18,7 +18,7 @@ void STATE_HASHER::precompute_table()
 {
     for (int suit=0 ; suit<4 ; suit++)
 	for (uint16_t bits=0 ; bits<TBL_SIZE ; bits++)
-	    _tbl[suit][bits] = compute_one(suit, bits << 2);
+	    _tbl[suit][bits] = compute_one(suit, bits << 2) >> 2;
 }
 
 
@@ -97,6 +97,7 @@ uint16_t STATE_HASHER::compute_one(int suit, uint16_t played) const
     }
     if (_debug)
 	printf("end: not_used=%04x\n", not_used);
+    jassert((0x7ffc & not_used) == not_used);
     return 0x7ffc ^ not_used;
 }
 
@@ -120,7 +121,7 @@ uint64_t STATE_HASHER::hash(const STATE& state) const
     }
     out <<= 7;
 
-        jassert(so_key >= 0 && so_key < 81);
+    jassert(so_key >= 0 && so_key < 81);
     // bits [5,12), show out state
     out |= so_key;
 

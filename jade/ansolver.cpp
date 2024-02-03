@@ -82,18 +82,21 @@ bool ANSOLVER::eval(STATE& state, const INTSET& dids)
     }
     bool new_trick = state.new_trick();
     hand64_t state_key = _hasher.hash(state);
-    if (state_key < 16) {
-	fprintf(stderr, "ANSOLVER: state_key is too small %llx\n", state_key);
-	fprintf(stderr, "ANSOLVER: desc: %s\n", STATE_HASHER::hash_to_string(state_key).c_str());
-
-	fprintf(stderr, "ANSOLVER: state: %s\n", state.to_string().c_str());
-	jassert(false);
-    }
 
     if (new_trick) {
 	TTMAP::iterator f = _tt.find(state_key);
 	if (f != _tt.end()) {
 	    _cache_hits++;
+	    if (debug) {
+		fprintf(stderr, "ANSOLVER: cache lookup <%s>\n",
+		    _hasher.hash_to_string(state_key).c_str());
+		fprintf(stderr, "ANSOLVER: raw key: %016llx\n", state_key);
+		fprintf(stderr, "dids=%s low=%s  up=%s\n",
+		    intset_to_string(dids).c_str(),
+		    bdt_to_string(_b2, f->second.lower).c_str(),
+		    bdt_to_string(_b2, f->second.upper).c_str());
+	    }
+
 	    if (_b2.contains(f->second.lower, dids)) {
 		if (debug)
 		    fprintf(stderr, "ANSOLVER::eval cache hit True\n"); 
@@ -352,7 +355,7 @@ std::string ANSOLVER::read_from_files(const char* bdt_file, const char* tt_file)
 	_tt.insert(v);
 	if ((i&-i) == i) {
 	    fprintf(stderr, "JORDAN: %u inserted %s  size=%zu\n",
-		i, hand_to_string(v.first).c_str(), _tt.size());
+		i, _hasher.hash_to_string(v.first).c_str(), _tt.size());
 	}
     }
     fclose(fp);

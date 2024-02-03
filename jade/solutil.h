@@ -20,6 +20,8 @@ UPMAP find_usable_plays_ew(const PROBLEM& problem, const STATE& state,
 bool is_target_achievable(const PROBLEM& problem, const STATE& state);
 bool all_can_win(const PROBLEM& problem, const STATE& state,
     const INTSET& dids);
+bool won_already(const PROBLEM& problem, const STATE& state);
+bool lost_already(const PROBLEM& problem, const STATE& state);
 
 ///////////
 

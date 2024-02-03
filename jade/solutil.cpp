@@ -1,6 +1,16 @@
 #include "solutil.h"
 #include "jassert.h"
 
+bool won_already(const PROBLEM& problem, const STATE& state)
+{
+    return (state.ns_tricks() >= problem.target);
+}
+
+bool lost_already(const PROBLEM& problem, const STATE& state)
+{
+    return (state.ew_tricks() >= 14 - problem.target);
+}
+
 std::pair<STATE, INTSET> load_from_history(const PROBLEM& problem,
     const std::vector<CARD>& plays_so_far)
 {
@@ -19,20 +29,32 @@ std::pair<STATE, INTSET> load_from_history(const PROBLEM& problem,
     {
 	CARD card = plays_so_far[i];
 	hand64_t bit = card_to_handbit(card);
+	bool check_suit = false;
+	if (!state.new_trick() && state.suit_led() != card.suit)
+	    check_suit = true;
 
 	if (state.to_play_ew()) {
 	    // filter out illegal dids
 	    INTSET good_dids;
 	    for (INTSET_ITR itr(dids) ; itr.more() ; itr.next())
 	    {
-		bool found = false;
-		if (state.to_play() == J_EAST) {
-		    if ((problem.easts[itr.current()] & bit) != 0)
-			found = true;
-		} else {
-		    if ((problem.wests[itr.current()] & bit) != 0)
-			found = true;
+		hand64_t hand =
+		    state.to_play() == J_EAST ?
+		    problem.easts[itr.current()] :
+		    problem.wests[itr.current()];
+
+		bool found = true;
+		if ((hand & bit) == 0)
+		    found = false;
+		if (found && check_suit) {
+		    hand64_t in_suit =
+			hand &
+			suit_bits(state.suit_led()) &
+			~state.played();
+		    if (in_suit != 0)
+			found = false;
 		}
+
 		if (found)
 		    good_dids.insert(itr.current());
 		else {
@@ -97,15 +119,30 @@ bool is_target_achievable(const PROBLEM& problem, const STATE& state)
 bool all_can_win(const PROBLEM& problem, const STATE& state,
     const INTSET& dids)
 {
+    const bool debug = false;
+    if (won_already(problem, state))
+	return true;
+    if (lost_already(problem, state))
+	return false;
+
     DDS_LOADER loader(problem, state, dids, 1, 1);
+
     for ( ; loader.more() ; loader.next())
     {
         for (int i=0 ; i<loader.chunk_size() ; i++) {
             int score = loader.chunk_solution(i).score[0];
-            if (state.to_play_ns() && score <= 0)
+            if (state.to_play_ns() && score <= 0) {
+		if (debug) {
+		    fprintf(stderr, "all_can_win: ns play chunk=%d did=%d score=%d returning false\n", i, loader.chunk_did(i), score);
+		}
                 return false;
-            if (state.to_play_ew() && score > 0)
+	    }
+            if (state.to_play_ew() && score > 0) {
+		if (debug) {
+		    fprintf(stderr, "all_can_win: ew play chunk=%d did=%d score=%d returning false\n", i, loader.chunk_did(i), score);
+		}
                 return false;
+	    }
         }
     }
     return true;
