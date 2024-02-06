@@ -194,7 +194,7 @@ class Deal:
         if isinstance(side, Direction):
             side = str(side)
         if not side in "WNES":
-            raise ValueError()
+            raise KeyError(side)
         return getattr(self, side)
 
     def square_string(self, played_cards=set()):
