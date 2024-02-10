@@ -85,7 +85,7 @@ def eval_nexpr(tree, deal, context):
     return lm(tree, deal, context)
 
 def eval_shape(compass, spec, deal):
-    allowed = get_specified_shapes(spec)
+    allowed = shape.get_specified_shapes(spec)
     return deal.hand(compass[0].upper()).pattern in allowed
 
 def eval_hascard(compass, card, deal):
