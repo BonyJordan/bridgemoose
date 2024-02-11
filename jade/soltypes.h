@@ -1,5 +1,5 @@
-#ifndef _LUBDT_H_
-#define _LUBDT_H_
+#ifndef _SOLTYPES_H_
+#define _SOLTYPES_H_
 
 #include "bdt.h"
 
@@ -17,4 +17,7 @@ struct LUBDT {
     bdt_t upper;
 };
 
-#endif // _LUBDT_H_
+typedef std::map<hand64_t, LUBDT> TTMAP;
+typedef unsigned long stat_t;
+
+#endif // _SOLTYPES_H_
