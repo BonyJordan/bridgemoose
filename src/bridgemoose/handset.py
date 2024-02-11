@@ -177,6 +177,9 @@ class DealSet:
 
         return Deal(*[Hand(h) for h in hand_lists])
 
+    def count(self):
+        return self.d.pcount()
+
     @staticmethod
     def get_bits(bdd, index):
         return bdd.get_pindex(index)
