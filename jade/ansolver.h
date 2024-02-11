@@ -49,6 +49,9 @@ ANSOLVER_STATS(A)
     ANSOLVER(const PROBLEM& p);
     ~ANSOLVER();
 
+    void add_westeast(const std::vector<hand64_t>& wests,
+	const std::vector<hand64_t>& easts);
+
     bool eval(STATE& state, const INTSET& dids);
     bool eval(const std::vector<CARD>& plays_so_far);
     bool eval(const std::vector<CARD>& plays_so_far, const INTSET& dids);

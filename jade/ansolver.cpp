@@ -21,6 +21,25 @@ ANSOLVER::~ANSOLVER()
 }
 
 
+void ANSOLVER::add_westeast(const std::vector<hand64_t>& wests,
+    const std::vector<hand64_t>& easts)
+{
+    jassert(wests.size() == easts.size());
+    for (size_t i=0 ; i<wests.size() ; i++) {
+	jassert(handbits_count(wests[i]) == 13);
+	jassert(handbits_count(easts[i]) == 13);
+	jassert((wests[i] & _p.north) == 0);
+	jassert((wests[i] & _p.south) == 0);
+	jassert((easts[i] & _p.north) == 0);
+	jassert((easts[i] & _p.south) == 0);
+	jassert((wests[i] & easts[i]) == 0);
+
+	_p.wests.push_back(wests[i]);
+	_p.easts.push_back(easts[i]);
+    }
+}
+
+
 bool ANSOLVER::eval(const std::vector<CARD>& plays_so_far, const INTSET& dids)
 {
     const bool debug = false;
@@ -319,6 +338,7 @@ std::string ANSOLVER::write_to_file(const char* filename)
 //static
 RESULT<ANSOLVER> ANSOLVER::read_from_file(const char* filename)
 {
+    const bool debug = false;
     std::string fn_colon = std::string(filename) + ": ";
     std::string err;
 
@@ -355,7 +375,8 @@ RESULT<ANSOLVER> ANSOLVER::read_from_file(const char* filename)
 	fclose(fp);
 	return out.delete_and_error(err);
     }
-    fprintf(stderr, "JORDAN: count of things to read: %u\n", u);
+    if (debug)
+	fprintf(stderr, "debug: count of things to read: %u\n", u);
     for (uint32_t i=0 ; i<u ; i++) {
 	TTMAP::value_type v;
 	if ((err = read_thing(v, fp)) != "") {
@@ -363,8 +384,8 @@ RESULT<ANSOLVER> ANSOLVER::read_from_file(const char* filename)
 	    return out.delete_and_error(err);
 	}
 	an->_tt.insert(v);
-	if ((i&-i) == i) {
-	    fprintf(stderr, "JORDAN: %u inserted %s  size=%zu\n",
+	if (debug && (i&-i) == i) {
+	    fprintf(stderr, "debug: %u inserted %s  size=%zu\n",
 		i, an->_hasher.hash_to_string(v.first).c_str(), an->_tt.size());
 	}
     }

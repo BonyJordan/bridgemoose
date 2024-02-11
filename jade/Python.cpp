@@ -205,6 +205,89 @@ ANSolver_dealloc(ANSolver_Object* self)
 }
 
 
+// -1 on fail and sets a Python Error
+// 0 on success
+static int
+pyo_to_west_east(PyObject* iterable, std::vector<hand64_t>& wests,
+    std::vector<hand64_t>& easts, hand64_t north, hand64_t south)
+{
+    PyObject* tuple = NULL;
+    PyObject* iter = PyObject_GetIter(iterable);
+    if (iter == NULL) {
+	return -1;
+    }
+    wests.clear();
+    easts.clear();
+
+    for (int index=0 ; true ; index++)
+    {
+	PyObject* tuple = PyIter_Next(iter);
+	if (tuple == NULL)
+	    break;
+
+	PyObject* eobj;
+	PyObject* wobj;
+
+	if (!PyArg_ParseTuple(tuple, "OO", &wobj, &eobj))
+	    goto errout;
+
+	hand64_t whand, ehand;
+	if (!hand_from_pyo(wobj, whand))
+	    goto errout;
+	if (!hand_from_pyo(eobj, ehand))
+	    goto errout;
+
+	if (handbits_count(whand) != handbits_count(north)) {
+	    PyErr_Format(PyExc_ValueError, "West[%d] wrong number of cards",
+		index);
+	    goto errout;
+	}
+	if (handbits_count(ehand) != handbits_count(north)) {
+	    PyErr_Format(PyExc_ValueError, "East[%d] wrong number of cards",
+		index);
+	    goto errout;
+	}
+	if ((whand & north) != 0) {
+	    PyErr_Format(PyExc_ValueError, "North/West[%d] use same cards",
+		index);
+	    goto errout;
+	}
+	if ((whand & south) != 0) {
+	    PyErr_Format(PyExc_ValueError, "South/West[%d] use same cards",
+		index);
+	    goto errout;
+	}
+	if ((ehand & north) != 0) {
+	    PyErr_Format(PyExc_ValueError, "North/East[%d] use same cards",
+		index);
+	    goto errout;
+	}
+	if ((ehand & south) != 0) {
+	    PyErr_Format(PyExc_ValueError, "South/East[%d] use same cards",
+		index);
+	    goto errout;
+	}
+
+	Py_DECREF(tuple);
+	tuple = NULL;
+
+	wests.push_back(whand);
+	easts.push_back(ehand);
+    }
+
+    Py_DECREF(iter);
+    if (PyErr_Occurred())
+	return -1;
+    else
+	return 0;
+
+  errout:
+    Py_XDECREF(iter);
+    Py_XDECREF(tuple);
+    return -1;
+}
+
+
 static int
 pyargs_to_problem(PROBLEM& problem, PyObject* args, PyObject* kwds)
 {
@@ -252,63 +335,9 @@ pyargs_to_problem(PROBLEM& problem, PyObject* args, PyObject* kwds)
 
     std::vector<hand64_t> easts;
     std::vector<hand64_t> wests;
-
-    PyObject* iter = PyObject_GetIter(we_obj);
-    if (iter == NULL) {
+    if (pyo_to_west_east(we_obj, wests, easts, north, south) < 0)
 	return -1;
-    }
-    for (int index=0 ; true ; index++)
-    {
-	PyObject* tuple = PyIter_Next(iter);
-	if (tuple == NULL)
-	    break;
 
-	PyObject* eobj;
-	PyObject* wobj;
-
-	if (!PyArg_ParseTuple(tuple, "OO", &wobj, &eobj))
-	    return -1;
-
-	hand64_t whand, ehand;
-	if (!hand_from_pyo(wobj, whand))
-	    return -1;
-	if (!hand_from_pyo(eobj, ehand))
-	    return -1;
-
-	if (handbits_count(whand) != handbits_count(north)) {
-	    PyErr_Format(PyExc_ValueError, "West[%d] wrong number of cards",
-		index);
-	    return -1;
-	}
-	if (handbits_count(ehand) != handbits_count(north)) {
-	    PyErr_Format(PyExc_ValueError, "East[%d] wrong number of cards",
-		index);
-	    return -1;
-	}
-	if ((whand & north) != 0) {
-	    PyErr_Format(PyExc_ValueError, "North/West[%d] use same cards",
-		index);
-	    return -1;
-	}
-	if ((whand & south) != 0) {
-	    PyErr_Format(PyExc_ValueError, "South/West[%d] use same cards",
-		index);
-	    return -1;
-	}
-	if ((ehand & north) != 0) {
-	    PyErr_Format(PyExc_ValueError, "North/East[%d] use same cards",
-		index);
-	    return -1;
-	}
-	if ((ehand & south) != 0) {
-	    PyErr_Format(PyExc_ValueError, "South/East[%d] use same cards",
-		index);
-	    return -1;
-	}
-
-	wests.push_back(whand);
-	easts.push_back(ehand);
-    }
 
     problem.north = north;
     problem.south = south;
@@ -570,8 +599,7 @@ ANSolver_read_from_file(PyObject* cls, PyObject* args)
     else
 	delete res.ok;
 
-    Py_INCREF(Py_None);
-    return Py_None;
+    return (PyObject*)self;
 }
 
 
@@ -607,13 +635,128 @@ ANSolver_compare_tt(PyObject* self, PyObject* args)
 	return NULL;
     }
 
-    printf("JORDAN: about to call compare_tt\n");
-
     left->ansolver->compare_tt(*right->ansolver);
 
     Py_INCREF(Py_None);
     return Py_None;
 }
+
+
+static PyObject*
+ANSolver_trump(PyObject* self, PyObject* Py_UNUSED(args))
+{
+    ANSolver_Object* anso = (ANSolver_Object*)self;
+    ANSOLVER* an = anso->ansolver;
+    static const char* outs = "CDHSN";
+    int trump = an->problem().trump;
+    if (trump < 0 || trump > 5) {
+	PyErr_Format(PyExc_AssertionError, "Bad trump_id: %d", trump);
+	return NULL;
+    }
+    return Py_BuildValue("c", outs[trump]);
+}
+
+
+static PyObject*
+ANSolver_target(PyObject* self, PyObject* Py_UNUSED(args))
+{
+    ANSolver_Object* anso = (ANSolver_Object*)self;
+    ANSOLVER* an = anso->ansolver;
+    int target = an->problem().target;
+    if (target < 1 || target > 13) {
+	return PyErr_Format(PyExc_AssertionError,
+	    "Bad trick target: %d", target);
+    }
+    return Py_BuildValue("i", target);
+}
+
+
+static PyObject*
+hand_to_pyo(hand64_t hand)
+{
+    if (handbits_count(hand) != 13)
+	return PyErr_Format(PyExc_AssertionError,
+	    "Bad hand found: %016llx", hand);
+
+    PyObject* args = Py_BuildValue("(s)", hand_to_string(hand).c_str());
+    return PyObject_CallObject(_hand_type, args);
+}
+
+
+static PyObject*
+ANSolver_north(PyObject* self, PyObject* Py_UNUSED(args))
+{
+    ANSolver_Object* anso = (ANSolver_Object*)self;
+    ANSOLVER* an = anso->ansolver;
+    return hand_to_pyo(an->problem().north);
+}
+
+
+static PyObject*
+ANSolver_south(PyObject* self, PyObject* Py_UNUSED(args))
+{
+    ANSolver_Object* anso = (ANSolver_Object*)self;
+    ANSOLVER* an = anso->ansolver;
+    return hand_to_pyo(an->problem().south);
+}
+
+
+static PyObject*
+ANSolver_west_east(PyObject* self, PyObject* Py_UNUSED(args))
+{
+    ANSolver_Object* anso = (ANSolver_Object*)self;
+    ANSOLVER* an = anso->ansolver;
+    size_t sz = an->problem().wests.size();
+
+    PyObject* out = PyList_New(sz);
+    if (out == NULL)
+	return out;
+    for (size_t i=0 ; i<sz ; i++)
+    {
+	PyObject* w = hand_to_pyo(an->problem().wests[i]);
+	if (w == NULL) {
+	    Py_DECREF(out);
+	    return NULL;
+	}
+	PyObject* e = hand_to_pyo(an->problem().wests[i]);
+	if (w == NULL) {
+	    Py_DECREF(w);
+	    Py_DECREF(out);
+	    return NULL;
+	}
+	PyObject* pair = PyTuple_Pack(2, w, e);
+	if (pair == NULL) {
+	    Py_DECREF(w);
+	    Py_DECREF(e);
+	    Py_DECREF(out);
+	    return NULL;
+	}
+	PyList_SET_ITEM(out, i, pair);
+    }
+
+    return out;
+}
+
+
+static PyObject*
+ANSolver_add_west_east(PyObject* self, PyObject* iterable)
+{
+    ANSolver_Object* anso = (ANSolver_Object*)self;
+    ANSOLVER* an = anso->ansolver;
+    std::vector<hand64_t> wests;
+    std::vector<hand64_t> easts;
+
+    if (pyo_to_west_east(iterable, wests, easts,
+	an->problem().north, an->problem().south) < 0)
+    {
+	return NULL;
+    }
+
+    an->add_westeast(wests, easts);
+
+    Py_RETURN_NONE;
+}
+
 
 
 static PyMethodDef Solver_RegularMethods[] = {
@@ -629,6 +772,12 @@ static PyMethodDef ANSolver_RegularMethods[] = {
     { "read_from_file", ANSolver_read_from_file, METH_VARARGS|METH_CLASS, "Read search cache from a file.  Takes as input a file name." },
     { "fill_tt", ANSolver_fill_tt, METH_VARARGS, "Forcibly fill transition table with all states.  Takes as input a history of card plays." },
     { "compare_tt", ANSolver_compare_tt, METH_VARARGS, "This is a stupid method.Takes as input two ANSolvers." },
+    { "trump", ANSolver_trump, METH_NOARGS, "Get the trump suit or 'N'" },
+    { "target", ANSolver_target, METH_NOARGS, "Get the target trick count" },
+    { "north", ANSolver_north, METH_NOARGS, "Get the north hand" },
+    { "south", ANSolver_south, METH_NOARGS, "Get the south hand" },
+    { "west_east", ANSolver_west_east, METH_NOARGS, "Get the list of west-east hand pairs" },
+    { "add_west_east", ANSolver_add_west_east, METH_O, "Add a list of west-east hand pairs" },
     { NULL, NULL, 0,  NULL },
 };
 
