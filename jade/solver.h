@@ -5,18 +5,13 @@
 #include <vector>
 #include <string>
 #include "cards.h"
-#include "lubdt.h"
+#include "soltypes.h"
 #include "state.h"
 #include "problem.h"
 #include "solutil.h"
 #include "ddscache.h"
 
 #include <set>
-
-typedef std::map<hand64_t, LUBDT> TTMAP;
-
-
-typedef unsigned long stat_t;
 
 #define SOLVER_STATS(A) \
 	A(cache_hits)	\

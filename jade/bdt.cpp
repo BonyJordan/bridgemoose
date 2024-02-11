@@ -1,5 +1,6 @@
 #include <assert.h>
 #include "bdt.h"
+#include "jadeio.h"
 #include <map>
 
 
@@ -293,80 +294,48 @@ INTSET BDT_MANAGER::get_used_vars(bdt_t key) const
 
 static const uint32_t FILE_HEADER = 0x315722;
 
-std::string BDT_MANAGER::write_to_file(const char* filename)
+std::string BDT_MANAGER::write_to_filestream(FILE* fp)
 {
-    FILE* fp = fopen(filename, "w");
-    if (fp == NULL) {
-	return oserr_str(filename);
-    }
-
     if (fwrite(&FILE_HEADER, sizeof FILE_HEADER, 1, fp) != 1) {
-	fclose(fp);
-	return oserr_str(filename);
+	return oserr_str();
     }
 
     uint32_t sz = _nodes.size();
     if (fwrite(&sz, sizeof sz, 1, fp) != 1) {
-	fclose(fp);
-	return oserr_str(filename);
+	return oserr_str();
     }
 
     for (unsigned i=1 ; i<_nodes.size() ; i++) {
 	if (fwrite(&_nodes[i], sizeof _nodes[i], 1, fp) != 1) {
-	    fclose(fp);
-	    return oserr_str(filename);
-	}
-    }
-    fclose(fp);
-    return "";
-}
-
-template <class T>
-std::string read_thing(T& thing, FILE* fp, const char* filename) {
-    if (fread(&thing, sizeof thing, 1, fp) != 1) {
-	if (feof(fp)) {
-	    fclose(fp);
-	    std::string out = filename;
-	    out += ": Unexpected end of file";
-	    return out;
-	} else {
-	    fclose(fp);
-	    return oserr_str(filename);
+	    return oserr_str();
 	}
     }
     return "";
 }
 
 
-std::string BDT_MANAGER::read_from_file(const char* filename)
+std::string BDT_MANAGER::read_from_filestream(FILE* fp)
 {
     if (_nodes.size() != 1) {
 	return "cannot read into non empty BDT_MANAGER";
     }
 
-    FILE* fp = fopen(filename, "r");
-    if (!fp) {
-	return oserr_str(filename);
-    }
-
     uint32_t sz;
     std::string err;
-    if ((err = read_thing(sz, fp, filename)) != "") {
+    if ((err = read_thing(sz, fp)) != "") {
 	return err;
     }
     if (sz != FILE_HEADER) {
-	fclose(fp);
-	return std::string(filename) + ": missing header";
+	return "missing BDT header";
     }
-    if ((err = read_thing(sz, fp, filename)) != "")
+    if ((err = read_thing(sz, fp)) != "")
 	return err;
     _nodes.resize(sz);
 
     for (unsigned i=1 ; i<sz ; i++) {
-	if ((err = read_thing(_nodes[i], fp, filename)) != "")
+	if ((err = read_thing(_nodes[i], fp)) != "")
 	    return err;
 	_node_rmap[_nodes[i]] = bdt_t::from(i);
     }
-    fclose(fp);
     return "";
 }

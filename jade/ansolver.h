@@ -4,13 +4,11 @@
 #include <map>
 #include <string>
 #include "cards.h"
-#include "lubdt.h"
 #include "solutil.h"
 #include "ddscache.h"
+#include "jadeio.h"
 #include "sthash.h"
-
-typedef std::map<hand64_t, LUBDT> TTMAP;
-typedef unsigned long stat_t;
+#include "soltypes.h"
 
 #define ANSOLVER_STATS(A) \
         A(cache_cutoffs) \
@@ -24,7 +22,7 @@ class ANSOLVER
 {
   private:
     // problem definition
-    const PROBLEM& _p;
+    PROBLEM       _p;
 
     // helper info
     STATE_HASHER _hasher;
@@ -59,8 +57,8 @@ ANSOLVER_STATS(A)
     std::map<std::string, stat_t> get_stats() const;
 
     // both return "" in case of no error, otherwise a message
-    std::string write_to_files(const char* bdt_file, const char* tt_file);
-    std::string read_from_files(const char* bdt_file, const char* tt_file);
+    std::string write_to_file(const char* filename);
+    static RESULT<ANSOLVER> read_from_file(const char* filename);
 
     void fill_tt(const std::vector<CARD>& plays_so_far);
 

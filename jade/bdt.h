@@ -135,8 +135,8 @@ class BDT_MANAGER
     enum { MAP_NUM = 6 };
     void get_map_sizes(size_t sizes[MAP_NUM]) const;
 
-    std::string write_to_file(const char* filename); 
-    std::string read_from_file(const char* filename);
+    std::string write_to_filestream(FILE* fp);
+    std::string read_from_filestream(FILE* fp);
 };
 
 

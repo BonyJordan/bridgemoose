@@ -126,7 +126,6 @@ typedef struct {
 typedef struct {
     PyObject_HEAD
     ANSOLVER* ansolver;
-    PROBLEM problem;
 } ANSolver_Object;
 
 
@@ -335,10 +334,11 @@ Solver_init(Solver_Object* self, PyObject* args, PyObject* kwds)
 static int
 ANSolver_init(ANSolver_Object* self, PyObject* args, PyObject* kwds)
 {
-    if (pyargs_to_problem(self->problem, args, kwds) < 0)
+    PROBLEM problem;
+    if (pyargs_to_problem(problem, args, kwds) < 0)
 	return -1;
 
-    self->ansolver = new ANSOLVER(self->problem);
+    self->ansolver = new ANSOLVER(problem);
     return 0;
 }
 
@@ -463,7 +463,7 @@ ANSolver_eval(PyObject* self, PyObject* args)
 	    return NULL;
 
 	for (INTSET_ITR itr(dids) ; itr.more() ; itr.next()) {
-	    if ((size_t)itr.current() > so->problem.wests.size())
+	    if ((size_t)itr.current() > so->ansolver->problem().wests.size())
 		return PyErr_Format(PyExc_IndexError, "%d", itr.current());
 	}
 
@@ -528,15 +528,14 @@ ANSolver_stats(PyObject* self, PyObject* args)
 
 
 static PyObject*
-ANSolver_write_to_files(PyObject* self, PyObject* args)
+ANSolver_write_to_file(PyObject* self, PyObject* args)
 {
     ANSolver_Object* so = (ANSolver_Object*)self;
-    const char* bdt_file_name = NULL;
-    const char* tt_file_name = NULL;
-    if (!PyArg_ParseTuple(args, "ss", &bdt_file_name, &tt_file_name))
+    const char* file_name = NULL;
+    if (!PyArg_ParseTuple(args, "s", &file_name))
 	return NULL;
 
-    std::string res = so->ansolver->write_to_files(bdt_file_name, tt_file_name);
+    std::string res = so->ansolver->write_to_file(file_name);
     if (res != "") {
 	PyErr_SetString(PyExc_OSError, res.c_str());
 	return NULL;
@@ -548,20 +547,28 @@ ANSolver_write_to_files(PyObject* self, PyObject* args)
 
 
 static PyObject*
-ANSolver_read_from_files(PyObject* self, PyObject* args)
+ANSolver_read_from_file(PyObject* cls, PyObject* args)
 {
-    ANSolver_Object* so = (ANSolver_Object*)self;
-    const char* bdt_file_name = NULL;
-    const char* tt_file_name = NULL;
-    if (!PyArg_ParseTuple(args, "ss", &bdt_file_name, &tt_file_name))
-	return NULL;
-
-    std::string res =
-	so->ansolver->read_from_files(bdt_file_name, tt_file_name);
-    if (res != "") {
-	PyErr_SetString(PyExc_OSError, res.c_str());
+    if (!PyType_Check(cls)) {
+	PyErr_SetString(PyExc_TypeError, "expected a type object");
 	return NULL;
     }
+    PyTypeObject* type = (PyTypeObject*)cls;
+    const char* file_name = NULL;
+    if (!PyArg_ParseTuple(args, "s", &file_name))
+	return NULL;
+
+    RESULT<ANSOLVER> res = ANSOLVER::read_from_file(file_name);
+    if (res.err != "") {
+	PyErr_SetString(PyExc_OSError, res.err.c_str());
+	return NULL;
+    }
+
+    ANSolver_Object* self = (ANSolver_Object*) type->tp_alloc(type, 0);
+    if (self != NULL)
+	self->ansolver = res.ok;
+    else
+	delete res.ok;
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -618,8 +625,8 @@ static PyMethodDef Solver_RegularMethods[] = {
 static PyMethodDef ANSolver_RegularMethods[] = {
     { "eval", ANSolver_eval, METH_VARARGS, "Compute the existence of a play line which covers all west/east possibilities.  Takes as input a history of card plays and an optional list of deal ids." },
     { "stats", ANSolver_stats, METH_VARARGS, "Return a dict of statistics" },
-    { "write_to_files", ANSolver_write_to_files, METH_VARARGS, "Save search cache to two files.  Takes as input a .bdt file name and a .tt file name" },
-    { "read_from_files", ANSolver_read_from_files, METH_VARARGS, "Read search cache from files.  Takes as input a .bdt file name and a .tt file name" },
+    { "write_to_file", ANSolver_write_to_file, METH_VARARGS, "Save search cache to a file.  Takes as input a file name." },
+    { "read_from_file", ANSolver_read_from_file, METH_VARARGS|METH_CLASS, "Read search cache from a file.  Takes as input a file name." },
     { "fill_tt", ANSolver_fill_tt, METH_VARARGS, "Forcibly fill transition table with all states.  Takes as input a history of card plays." },
     { "compare_tt", ANSolver_compare_tt, METH_VARARGS, "This is a stupid method.Takes as input two ANSolvers." },
     { NULL, NULL, 0,  NULL },

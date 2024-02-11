@@ -1,10 +1,11 @@
 #include <stdio.h>
 #include "ansolver.h"
 #include "jassert.h"
+#include "jadeio.h"
 
 
 ANSOLVER::ANSOLVER(const PROBLEM& problem) :
-    _p(problem),_hasher(problem),_dds_cache(problem)
+    _p(problem),_hasher(_p),_dds_cache(_p)
 {
     jassert(_p.wests.size() == _p.easts.size());
     _all_dids = INTSET::full_set((int)_p.wests.size());
@@ -275,32 +276,39 @@ std::map<std::string, stat_t> ANSOLVER::get_stats() const
 
 static const uint32_t FILE_HEADER = 0xf136898;
 
-std::string ANSOLVER::write_to_files(const char* bdt_file, const char* tt_file)
+std::string ANSOLVER::write_to_file(const char* filename)
 {
-    std::string err = _b2.write_to_file(bdt_file);
-    if (err != "")
-	return err;
-
-    FILE* fp = fopen(tt_file, "w");
+    FILE* fp = fopen(filename, "w");
     if (fp == NULL) {
-	return oserr_str(tt_file);
+	return oserr_str(filename);
     }
 
-    if (fwrite(&FILE_HEADER, sizeof FILE_HEADER, 1, fp) != 1) {
+    std::string fn_colon = std::string(filename) + ": ";
+    std::string err;
+    if ((err = write_thing(FILE_HEADER, fp)) != "") {
 	fclose(fp);
-	return oserr_str(tt_file);
+	return fn_colon + err;
     }
+    if ((err = _p.write_to_filestream(fp)) != "") {
+	fclose(fp);
+	return fn_colon + err;
+    }
+    if ((err = _b2.write_to_filestream(fp)) != "") {
+	fclose(fp);
+	return fn_colon + err;
+    }
+
     uint32_t sz = _tt.size();
     if (fwrite(&sz, sizeof sz, 1, fp) != 1) {
 	fclose(fp);
-	return oserr_str(tt_file);
+	return oserr_str(filename);
     }
 
     for (TTMAP::const_iterator itr = _tt.begin() ; itr != _tt.end() ; itr++)
     {
 	if (fwrite(&*itr, sizeof *itr, 1, fp) != 1) {
 	    fclose(fp);
-	    return oserr_str(tt_file);
+	    return oserr_str(filename);
 	}
     }
     fclose(fp);
@@ -308,58 +316,60 @@ std::string ANSOLVER::write_to_files(const char* bdt_file, const char* tt_file)
 }
 
 
-template <class T>
-std::string read_thing(T& thing, FILE* fp, const char* filename)
+//static
+RESULT<ANSOLVER> ANSOLVER::read_from_file(const char* filename)
 {
-    if (fread(&thing, sizeof thing, 1, fp) != 1) {
-        if (feof(fp)) {
-            fclose(fp);
-	    return std::string(filename) + ": Unexpected end of file";
-        } else {
-            fclose(fp);
-            return oserr_str(filename);
-        }
-    }
-    return "";
-}
-
-
-std::string ANSOLVER::read_from_files(const char* bdt_file, const char* tt_file)
-{
+    std::string fn_colon = std::string(filename) + ": ";
     std::string err;
-    if ((err = _b2.read_from_file(bdt_file)) != "")
-	return err;
 
-    FILE* fp = fopen(tt_file, "r");
+    FILE* fp = fopen(filename, "r");
     if (fp == NULL) {
-	return oserr_str(tt_file);
+	return RESULT<ANSOLVER>(oserr_str(filename));
     }
 
     uint32_t u;
-    if ((err = read_thing(u, fp, tt_file)) != "") {
-	return err;
+    if ((err = read_thing(u, fp)) != "") {
+	fclose(fp);
+	return RESULT<ANSOLVER>(fn_colon + err);
     }
     if (u != FILE_HEADER) {
 	fclose(fp);
-	return std::string(tt_file) + ": missing header";
+	return RESULT<ANSOLVER>(fn_colon + "missing header");
     }
 
-    if ((err = read_thing(u, fp, tt_file)) != "") {
-	return err;
+    PROBLEM problem;
+    if ((err = problem.read_from_filestream(fp)) != "") {
+	fclose(fp);
+	return RESULT<ANSOLVER>(fn_colon + err);
+    }
+
+    RESULT<ANSOLVER> out(new ANSOLVER(problem));
+    ANSOLVER* an = out.ok;
+
+    if ((err = an->_b2.read_from_filestream(fp)) != "") {
+	fclose(fp);
+	return out.delete_and_error(fn_colon + err);
+    }
+
+    if ((err = read_thing(u, fp)) != "") {
+	fclose(fp);
+	return out.delete_and_error(err);
     }
     fprintf(stderr, "JORDAN: count of things to read: %u\n", u);
     for (uint32_t i=0 ; i<u ; i++) {
 	TTMAP::value_type v;
-	if ((err = read_thing(v, fp, tt_file)) != "")
-	    return err;
-	_tt.insert(v);
+	if ((err = read_thing(v, fp)) != "") {
+	    fclose(fp);
+	    return out.delete_and_error(err);
+	}
+	an->_tt.insert(v);
 	if ((i&-i) == i) {
 	    fprintf(stderr, "JORDAN: %u inserted %s  size=%zu\n",
-		i, _hasher.hash_to_string(v.first).c_str(), _tt.size());
+		i, an->_hasher.hash_to_string(v.first).c_str(), an->_tt.size());
 	}
     }
     fclose(fp);
-    return "";
+    return out;
 }
 
 

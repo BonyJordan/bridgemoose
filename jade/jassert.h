@@ -11,13 +11,4 @@
 #define __jassert(e, file, line) \
     ((void)fprintf (stderr, "%s:%d: failed jassertion `%s'\n", file, line, e), abort())
 
-inline std::string oserr_str(const char* filename = NULL) {
-    std::string out = "";
-    if (filename != NULL) {
-	out = filename;
-	out += ": ";
-    }
-    return out + strerror(errno);
-}
-
 #endif // _JASSERT_H_
