@@ -137,6 +137,9 @@ with the following useful analytics defined:
     def __str__(self):
         return "/".join([self.str_for_suit(s) for s in "SHDC"])
 
+    def __repr__(self):
+        return f"bridgemoose.Hand('{str(self)}')"
+
     def lin_string(self):
         return "".join([s+self.str_for_suit(s,"") for s in "SHDC"])
 
