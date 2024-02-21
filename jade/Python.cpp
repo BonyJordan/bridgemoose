@@ -653,7 +653,7 @@ ANSolver_trump(PyObject* self, PyObject* Py_UNUSED(args))
 	PyErr_Format(PyExc_AssertionError, "Bad trump_id: %d", trump);
 	return NULL;
     }
-    return Py_BuildValue("c", outs[trump]);
+    return Py_BuildValue("C", outs[trump]);
 }
 
 
