@@ -64,7 +64,7 @@ module_dds = setuptools.Extension('bridgemoose.dds',
 setuptools.setup(
     packages=setuptools.find_packages('src'),
     package_dir={'':'src'},
-    ext_modules=[module_dds, module_jbdd, module_jade],
+    ext_modules=[module_jade, module_dds, module_jbdd],
     name="BridgeMoose",
     version="0.2",
     author="Jordan",

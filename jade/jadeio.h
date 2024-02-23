@@ -2,6 +2,7 @@
 #define _JADE_IO_H_
 
 #include <stdio.h>
+#include <string.h>
 #include <string>
 
 inline std::string oserr_str(const char* filename = NULL) {

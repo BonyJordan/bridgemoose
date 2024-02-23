@@ -1,6 +1,9 @@
 #include "solutil.h"
 #include "jassert.h"
 
+DDS_C_API* dds_api = NULL;
+
+
 bool won_already(const PROBLEM& problem, const STATE& state)
 {
     return (state.ns_tricks() >= problem.target);
@@ -216,11 +219,12 @@ void DDS_LOADER::solve_some()
 	return;
     }
 
-    int r = SolveAllBoardsBin(&_bo, &_solved);
+    int r = (*dds_api->pSolveAllBoardsBin)(&_bo, &_solved);
 
     if (r < 0) {
 	char line[80];
-	ErrorMessage(r, line);
+	(*dds_api->pErrorMessage)(r, line);
+
 	fprintf(stderr, "DDS_LOADER::solve_some(): DDS(%d): %s\n", r, line);
 	exit(-1);
     }

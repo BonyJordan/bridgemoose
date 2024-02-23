@@ -12,7 +12,9 @@
 #include <iomanip>
 #include <sstream>
 #include <string.h>
+#ifdef __APPLE__
 #include <sys/sysctl.h>
+#endif __APPLE__
 
 #include "SolveBoard.h"
 #include "CalcTables.h"

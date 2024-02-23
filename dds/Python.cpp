@@ -1,8 +1,10 @@
 #include <Python.h>
 #include "dll.h"
+#include "dds_api.h"
 
 static PyObject* _deal_type = NULL;
 static PyObject* _hand_type = NULL;
+static DDS_C_API _dds_c_api;
 
 static PyObject*
 dds_error(int r)
@@ -851,7 +853,21 @@ PyInit_dds(void)
     if (_hand_type == NULL)
         return NULL;
 
+    _dds_c_api.pErrorMessage = ErrorMessage;
+    _dds_c_api.pSolveAllBoardsBin = SolveAllBoardsBin;
+
     SetMaxThreads(1);
 
-    return PyModule_Create(&ddsmodule);
+    PyObject* dds_mod = PyModule_Create(&ddsmodule);
+    if (dds_mod == NULL)
+	return NULL;
+
+    PyObject* c_api_obj = PyCapsule_New((void*)&_dds_c_api, "bridgemoose.dds._C_API", NULL);
+    if (PyModule_AddObject(dds_mod, "_C_API", c_api_obj) < 0) {
+	Py_XDECREF(c_api_obj);
+	Py_DECREF(dds_mod);
+	return NULL;
+    }
+
+    return dds_mod;
 }

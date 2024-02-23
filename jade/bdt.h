@@ -33,7 +33,7 @@ class bdt_t {
     bdt_t operator|(const bdt_t& b) const { jassert(false); return *this; }
     bdt_t& operator&=(const bdt_t& b) { jassert(false); return *this; }
     bdt_t& operator|=(const bdt_t& b) { jassert(false); return *this; }
-};
+} __attribute__((packed));
 
 
 typedef std::pair<bdt_t, bdt_t> BDT_KEY_PAIR;

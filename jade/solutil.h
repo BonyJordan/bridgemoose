@@ -34,8 +34,8 @@ std::string bdt_to_string(BDT_MANAGER& b2, bdt_t bdt);
 
 class DDS_LOADER
 {
-    const PROBLEM& _problem;
-    const STATE&   _state;
+    const PROBLEM&   _problem;
+    const STATE&     _state;
 
     INTSET_ITR	_itr;
     int		_did_map[MAXNOOFBOARDS];
@@ -67,6 +67,8 @@ class DDS_LOADER
 	load_some();
     }
 };
+
+extern DDS_C_API* dds_api;
 
 /////////////////
 

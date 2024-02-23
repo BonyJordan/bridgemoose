@@ -3,6 +3,7 @@
 #include <inttypes.h>
 #include "ansolver.h"
 #include "solver.h"
+#include "solutil.h"
 
 
 PyObject* _hand_type = NULL;
@@ -787,12 +788,12 @@ static PyTypeObject Solver_Type = {
     .tp_name = "bridgemoose.jade.Solver",
     .tp_basicsize = sizeof(Solver_Object),
     .tp_itemsize = 0,
+    .tp_dealloc = (destructor)Solver_dealloc,
     .tp_flags = Py_TPFLAGS_DEFAULT,
     .tp_doc = PyDoc_STR("Jordan's Amazing Declarer Evaluater - Solver Object"),
     .tp_methods = Solver_RegularMethods,
     .tp_init = (initproc) Solver_init,
     .tp_new = Solver_new,
-    .tp_dealloc = (destructor)Solver_dealloc,
 };
 
 //static
@@ -801,12 +802,12 @@ PyTypeObject ANSolver_Type = {
     .tp_name = "bridgemoose.jade.ANSolver",
     .tp_basicsize = sizeof(ANSolver_Object),
     .tp_itemsize = 0,
+    .tp_dealloc = (destructor)ANSolver_dealloc,
     .tp_flags = Py_TPFLAGS_DEFAULT,
     .tp_doc = PyDoc_STR("Jordan's Amazing Declarer Evaluater - All-or-None Solver Object"),
     .tp_methods = ANSolver_RegularMethods,
     .tp_init = (initproc) ANSolver_init,
     .tp_new = ANSolver_new,
-    .tp_dealloc = (destructor)ANSolver_dealloc,
 };
 
 
@@ -839,6 +840,10 @@ PyInit_jade(void)
 	goto fie;
     _jbdd_type = PyObject_GetAttrString(jb_mod, "BDD");
     if (_jbdd_type == NULL)
+	goto fie;
+
+    dds_api = (DDS_C_API*)PyCapsule_Import("bridgemoose.dds._C_API", 0);
+    if (dds_api == NULL)
 	goto fie;
 
     /////
