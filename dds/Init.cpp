@@ -143,6 +143,15 @@ void STDCALL SetResources(
   }
   else
   {
+    noOfThreads = thrMax;
+    noOfLargeThreads = 0;
+    noOfSmallThreads = thrMax;
+
+
+    // This piece looks like trouble.  It looks if we have S small, L large
+    // and S+L total, we only initialize memory for the first max(S,L) slots
+    // and everything about that is broken?
+    /*
     // We'll have a mixture with as many large threads as possible.
     const double d = static_cast<double>(
           THREADMEM_LARGE_MAX_MB - THREADMEM_SMALL_MAX_MB);
@@ -151,6 +160,7 @@ void STDCALL SetResources(
     noOfLargeThreads = static_cast<int>(
       (memMaxMB - thrMax * THREADMEM_SMALL_MAX_MB) / d);
     noOfSmallThreads = thrMax - noOfLargeThreads;
+    */
   }
 
   sysdep.RegisterParams(noOfThreads, memMaxMB);
