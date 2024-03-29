@@ -856,7 +856,7 @@ PyInit_dds(void)
     _dds_c_api.pErrorMessage = ErrorMessage;
     _dds_c_api.pSolveAllBoardsBin = SolveAllBoardsBin;
 
-    SetMaxThreads(1);
+    SetMaxThreads(0);
 
     PyObject* dds_mod = PyModule_Create(&ddsmodule);
     if (dds_mod == NULL)
