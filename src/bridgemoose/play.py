@@ -100,6 +100,10 @@ class PlayView:
 
     @staticmethod
     def history_to_player(declarer, history, strain):
+        """\
+Construct a list which identifies which player played each card
+from a history (an iterable of played cards)
+        """
         player = declarer + 1
         current_trick = 0
         out = []

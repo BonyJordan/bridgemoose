@@ -363,6 +363,9 @@ RESULT<ANSOLVER> ANSOLVER::read_from_file(const char* filename)
 	return RESULT<ANSOLVER>(fn_colon + err);
     }
 
+    if (debug)
+	printf("debug: read the problem\n");
+
     RESULT<ANSOLVER> out(new ANSOLVER(problem));
     ANSOLVER* an = out.ok;
 
@@ -370,6 +373,9 @@ RESULT<ANSOLVER> ANSOLVER::read_from_file(const char* filename)
 	fclose(fp);
 	return out.delete_and_error(fn_colon + err);
     }
+
+    if (debug)
+	fprintf(stderr, "debug: read the BDT manager\n");
 
     if ((err = read_thing(u, fp)) != "") {
 	fclose(fp);

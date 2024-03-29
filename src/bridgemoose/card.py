@@ -43,7 +43,10 @@ class Card(collections.namedtuple("Card", "suit rank")):
 
     def mk_cmp(op):
         def fn(self, other):
-            return self.suit == other.suit and op(Card.RANK_ORDER[self.rank], Card.RANK_ORDER[other.rank])
+            if self.suit == other.suit:
+                return op(Card.RANK_ORDER[self.rank], Card.RANK_ORDER[other.rank])
+            else:
+                return op(Card.SUIT_ORDER[self.suit], Card.SUIT_ORDER[other.suit])
         return fn
 
     __ge__ = mk_cmp(operator.ge)

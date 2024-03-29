@@ -38,6 +38,12 @@ card play which maximizes the score.
             raise ValueError("scoring must be 'imps', 'matchpoints', or 'total'")
 
     def smart_play(self, pd, accept):
+        """\
+Use the robot's algorithm to choose a legal play.
+* pd: a bm.PartialView showing what this player can see
+* accept: a function acception a random bm.Deal which returns True if the
+    deal is consistent with what is known from the bidding
+        """
         if self.debug:
             print("pd.hands_left=", pd.hands_left[pd.next_play.i])
         if not pd.current_trick and len(pd.hands_left[pd.next_play.i]) == 13:
@@ -182,9 +188,8 @@ card play which maximizes the score.
             else:
                 return accept(deal)
 
-        assert False
-#        return list(semi_random_deals(
-#            self.trials, showout_accept, fixed_cards))
+        return list(semi_random_deals(
+            self.trials, showout_accept, fixed_cards))
 
 
     def play_out_deal(self, deal, declarer, contract, vulnerable, accept):

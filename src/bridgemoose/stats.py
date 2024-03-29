@@ -1,6 +1,7 @@
 import math
 from collections import Counter
 from collections import defaultdict
+import time
 
 from . import dds
 from . import scoring
@@ -133,3 +134,37 @@ are triples as described above.
         return out[""]
     else:
         return out
+
+class ReportingTimer:
+    def __init__(self, name=None):
+        self.name = name
+        self.count = 0
+        self.last_start = None
+        self.last_check = None
+        self.total_time = 0
+
+    @staticmethod
+    def fmt_elapsed(amount):
+        if amount < 1:
+            return f"{amount:.3f}s"
+        elif amount < 10:
+            return f"{amount:.2f}s"
+        elif amount < 100:
+            return f"{amount:.1f}s"
+        else:
+            return f"{amount:.0f}s"
+
+    def __enter__(self):
+        self.count += 1
+        self.last_start = time.time()
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        elapsed = time.time() - self.last_start
+        self.total_time += elapsed
+        pstr = f"{self.name if self.name else 'Timer'}: "
+        if self.count == 1:
+            pstr += self.fmt_elapsed(elapsed)
+        else:
+            pstr += f"avg {self.fmt_elapsed(self.total_time/self.count)} over {self.count} calls"
+        print(pstr)
+

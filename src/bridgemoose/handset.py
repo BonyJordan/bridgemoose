@@ -8,6 +8,7 @@ import time
 from .direction import Direction
 from .card import Card
 from .deal import Deal, Hand
+from .play import PartialHand
 from .jbdd import BDD
 
 debug = False
@@ -445,6 +446,24 @@ class hand_makers:
     def CARD(card):
         index = SimpleHandMetric.card_index[Card(card)]
         return HandSet(BDD(index))
+
+    @staticmethod
+    def IN_SUIT(suit):
+        return {
+            "S":hand_makers.NUM_SP,
+            "H":hand_makers.NUM_HE,
+            "D":hand_makers.NUM_DI,
+            "C":hand_makers.NUM_CL,
+        }[suit]
+
+    @staticmethod
+    def CONTAINS(thing):
+        """ Either a Hand or a PartialHand or a string representation """
+        ph = PartialHand(thing)
+        if ph.cards:
+            return functools.reduce(operator.__and__, map(hand_makers.CARD, ph.cards))
+        else:
+            return HandSet(BDD.true())
 
     QUICKx2 = lazy_const(lambda: QuickTricksMetric())
 
