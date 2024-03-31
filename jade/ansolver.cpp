@@ -1,3 +1,4 @@
+#include <sys/time.h>
 #include <stdio.h>
 #include "ansolver.h"
 #include "jassert.h"
@@ -50,7 +51,8 @@ bool ANSOLVER::eval(const std::vector<CARD>& plays_so_far, const INTSET& dids)
 	return false;
     }
     _dds_calls++;
-    if (!all_can_win(_p, sd.first, sd.second)) {
+    //if (!all_can_win(_p, sd.first, sd.second)) {
+    if (!timed_all_can_win(_p, sd.first, sd.second)) {
 	if (debug)
 	    fprintf(stderr, "ANSOLVER::eval -> not all can win\n");
 	return false;
@@ -69,7 +71,8 @@ bool ANSOLVER::eval(const std::vector<CARD>& plays_so_far)
 	return false;
     }
     _dds_calls++;
-    if (!all_can_win(_p, sd.first, sd.second)) {
+    //if (!all_can_win(_p, sd.first, sd.second)) {
+    if (!timed_all_can_win(_p, sd.first, sd.second)) {
 	if (debug)
 	    fprintf(stderr, "ANSOLVER::eval -> not all can win\n");
 	return false;
@@ -405,7 +408,8 @@ void ANSOLVER::fill_tt(const std::vector<CARD>& plays_so_far)
     std::pair<STATE, INTSET> sd = load_from_history(_p, plays_so_far);
     jassert(is_target_achievable(_p, sd.first));
     _dds_calls++;
-    jassert(all_can_win(_p, sd.first, sd.second));
+    //jassert(all_can_win(_p, sd.first, sd.second));
+    jassert(timed_all_can_win(_p, sd.first, sd.second));
 
     std::map<hand64_t, bdt_t> visited;
     fill_tt_inner(visited, sd.first, sd.second);
@@ -486,4 +490,18 @@ void ANSOLVER::compare_tt(const ANSOLVER& b) const
 		STATE_HASHER::hash_to_string(bitr->first).c_str());
 	}
     }
+}
+
+///////////////
+
+bool ANSOLVER::timed_all_can_win(const PROBLEM& problem, const STATE& state,
+    const INTSET& dids)
+{
+    struct timeval start, end;
+    gettimeofday(&start, NULL);
+    bool r = all_can_win(problem, state, dids);
+    gettimeofday(&end, NULL);
+    _all_can_win_count ++;
+    _all_can_win_us += (end.tv_sec - start.tv_sec)*1000000 + end.tv_usec - start.tv_usec;
+    return r;
 }

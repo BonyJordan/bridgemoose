@@ -10,12 +10,14 @@
 #include "sthash.h"
 #include "soltypes.h"
 
-#define ANSOLVER_STATS(A) \
-        A(cache_cutoffs) \
-        A(cache_hits)    \
-        A(cache_misses)  \
-        A(cache_size)    \
-        A(dds_calls)     \
+#define ANSOLVER_STATS(A)    \
+	A(all_can_win_count) \
+	A(all_can_win_us)    \
+        A(cache_cutoffs)     \
+        A(cache_hits)        \
+        A(cache_misses)      \
+        A(cache_size)        \
+        A(dds_calls)         \
         A(node_visits)
 
 class ANSOLVER
@@ -43,6 +45,8 @@ ANSOLVER_STATS(A)
     std::vector<CARD> find_usable_plays_ns(const STATE& state,
 	const INTSET& dids);
     void fill_tt_inner(std::map<hand64_t, bdt_t>& visited, STATE& state,
+	const INTSET& dids);
+    bool timed_all_can_win(const PROBLEM& problem, const STATE& state,
 	const INTSET& dids);
 
   public:
