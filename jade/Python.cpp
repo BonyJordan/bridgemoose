@@ -719,9 +719,9 @@ ANSolver_west_east(PyObject* self, PyObject* Py_UNUSED(args))
 	    Py_DECREF(out);
 	    return NULL;
 	}
-	PyObject* e = hand_to_pyo(an->problem().wests[i]);
-	if (w == NULL) {
-	    Py_DECREF(w);
+	PyObject* e = hand_to_pyo(an->problem().easts[i]);
+	if (e == NULL) {
+	    Py_DECREF(e);
 	    Py_DECREF(out);
 	    return NULL;
 	}
