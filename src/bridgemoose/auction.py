@@ -92,6 +92,10 @@ class DeclaredContract:
     def __hash__(self):
         return hash((self.level, self.strain, self.double_state, self.declarer))
 
+    def ds(self):
+        """ Return a 2 character string with declarer, strain """
+        return str(self.declarer) + self.strain
+
 class Bid:
     STRAINS = ["C","D","H","S","N"]
 

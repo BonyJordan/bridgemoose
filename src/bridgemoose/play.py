@@ -87,15 +87,18 @@ class PlayView:
 
     def clone(self):
         copy = PlayView(self.declarer, self.contract, self.vulnerable)
-        copy.hands_left = [None if x is None else PartialHand(x) for x in self.hands_left]
-        copy.hands_played = [PartialHand(x) for x in self.hands_played]
-        copy.next_play = self.next_play
-        copy.history = list(self.history)
-        copy.current_trick = list(self.current_trick)
-        copy.declarer_tricks = self.declarer_tricks
-        copy.defense_tricks = self.defense_tricks
-        copy.showouts = set(self.showouts)
-        return copy
+        return self.clone_into(copy)
+
+    def clone_into(self, other):
+        other.hands_left = [None if x is None else PartialHand(x) for x in self.hands_left]
+        other.hands_played = [PartialHand(x) for x in self.hands_played]
+        other.next_play = self.next_play
+        other.history = list(self.history)
+        other.current_trick = list(self.current_trick)
+        other.declarer_tricks = self.declarer_tricks
+        other.defense_tricks = self.defense_tricks
+        other.showouts = set(self.showouts)
+        return other
     
 
     @staticmethod

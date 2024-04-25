@@ -3,7 +3,10 @@ from collections import Counter
 from collections import defaultdict
 import time
 
+from . import auction
 from . import dds
+from . import direction
+from . import random
 from . import scoring
 
 class Statistic:
@@ -168,3 +171,125 @@ class ReportingTimer:
             pstr += f"avg {self.fmt_elapsed(self.total_time/self.count)} over {self.count} calls"
         print(pstr)
 
+        
+class DDComparison:
+    def __init__(self, contracts1, scores1, contracts2, scores2, score_type):
+        self.contracts1 = contracts1
+        self.scores1 = scores1
+        self.contracts2 = contracts2
+        self.scores2 = scores2
+        self.score_type = score_type
+
+    def advantage_1(self, score_type=None):
+        if score_type is None:
+            score_type = self.score_type
+
+        scorers = {
+            "IMPS": scoring.scorediff_imps,
+            "IMP": scoring.scorediff_imps,
+            "MPS": scoring.scorediff_matchpoints,
+            "MP": scoring.scorediff_matchpoints,
+            "MATCHPOINTS": scoring.scorediff_matchpoints,
+            "TOTAL": lambda x: x,
+        }
+        score_func = scorers[score_type.upper()]
+
+        count1 = Counter()
+        count2 = Counter()
+        stat = Statistic()
+
+        for c1, s1, c2, s2 in zip(self.contracts1, self.scores1, self.contracts2, self.scores2):
+            stat.add_data_point(score_func(s1 - s2))
+            count1[(c1,s1)] += 1
+            count2[(c2,s2)] += 1
+
+        return stat, count1, count2
+
+
+class DDAnalyzer:
+    def __init__(self, count, west=None, north=None, east=None, south=None,
+        accept=None, rng=None, score_type="IMPS", vulnerability=None):
+        #
+        self.count = count
+        self.gen = random.RestrictedDealer(west, north, east, south, accept, rng)
+        self.deals = []
+        self.tricks = []
+        self.add_deals(count)
+        self.score_type = score_type
+        self.vulnerability = vulnerability
+
+    def add_deals(self, count):
+        misses = 0
+        hits = 0
+        while hits < count:
+            deal = self.gen.one_try()
+            if deal is None:
+                misses += 1
+                if hits == 0 and misses > 100000:
+                    raise ValueError("100,000 misses.  Perhaps there are no valid deals?")
+            else:
+                self.deals.append(deal)
+                self.tricks.append({})
+                hits += 1
+
+
+    def _get_contracts(self, strategy):
+        if callable(strategy):
+            return [auction.DeclaredContract(strategy(deal)) for deal in self.deals]
+        else:
+            return [auction.DeclaredContract(strategy)] * len(self.deals)
+
+    def compare_strategies(self, strategy1, strategy2, score_type=None,
+        vulnerability=None):
+        #
+        contracts1 = self._get_contracts(strategy1)
+        contracts2 = self._get_contracts(strategy2)
+
+        self._dds_work(contracts1, contracts2)
+
+        # first default value
+        if vulnerability is None:
+            vulnerability = self.vulnerability
+
+        if vulnerability is None:
+            vulnerability = ""
+        elif vulnerability in ("BOTH", "b"):
+            vulnerability = "NSEW"
+
+        vul_set = [direction.Direction(x) for x in vulnerability]
+
+        scores1 = self._score_up(contracts1, vul_set)
+        scores2 = self._score_up(contracts2, vul_set)
+
+        return DDComparison(contracts1, scores1, contracts2, scores2,
+            self.score_type if score_type is None else score_type)
+
+    def _score_up(self, contracts, vul_set):
+        sign = {
+            direction.Direction.NORTH: 1,
+            direction.Direction.SOUTH: 1,
+            direction.Direction.EAST: -1,
+            direction.Direction.WEST: -1,
+        }
+
+        return [sign[con.declarer] * scoring.result_score(con,
+            self.tricks[i][con.ds()], con.declarer in vul_set) for
+            i, con in enumerate(contracts)]
+
+    def _dds_work(self, contracts1, contracts2):
+        work = []
+        work_index = []
+        for i in range(len(self.deals)):
+            DS1 = contracts1[i].ds()
+            DS2 = contracts2[i].ds()
+            if not DS1 in self.tricks[i]:
+                work.append((self.deals[i], DS1[0], DS1[1]))
+                work_index.append((i, DS1))
+            if DS1 != DS2 and not DS2 in self.tricks[i]:
+                work.append((self.deals[i], DS2[0], DS2[1]))
+                work_index.append((i, DS2))
+
+        answers = dds.solve_many_deals(work)
+
+        for answer, (deal_num, ds) in zip(answers, work_index):
+            self.tricks[deal_num][ds] = answer

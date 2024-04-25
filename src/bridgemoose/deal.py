@@ -37,9 +37,7 @@ with the following useful analytics defined:
     def __init__(self, cards):
         if type(cards) is str:
             self.init_for_string(cards)
-        elif type(cards) is list:
-            self.init_for_iterable(cards)
-        elif type(cards) is set:
+        elif isinstance(cards, (set, frozenset, list)):
             self.init_for_iterable(cards)
         elif type(cards) is Hand:
             self.init_for_iterable(cards.cards)

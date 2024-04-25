@@ -36,8 +36,10 @@ class RestrictedDealer:
 
         if any(callable(x) for x in args):
             self.init_with_callables(args)
-        else:
+        elif any(isinstance(x, HandSet) for x in args):
             self.init_with_handsets(args)
+        else:
+            self.init_with_callables(args)
 
     def init_with_callables(self, args):
         self.dealset = None
@@ -120,8 +122,6 @@ class RestrictedDealer:
         return deal
 
     def _process_card_set(self, d, cset):
-        if len(cset) != 13:
-            raise ValueError("Require exactly 13 cards for %s" % (d,))
         for x in cset:
             if not isinstance(x, Card):
                 raise TypeError("Not a Card: %s" % (x))
