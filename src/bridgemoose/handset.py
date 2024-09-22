@@ -166,7 +166,12 @@ class QuickTricksMetric(HandSetMetric):
 
 class DealSet:
     def __init__(self, d):
-        self.d = d
+        if d is None:
+            self.d = BDD.false()
+        elif isinstance(d, BDD):
+            self.d = d
+        else:
+            raise TypeError("BDD or None")
 
     def sample(self, rng=random):
         index = rng.randrange(self.d.pcount())
@@ -177,6 +182,27 @@ class DealSet:
             hand_lists[owner].append(card)
 
         return Deal(*[Hand(h) for h in hand_lists])
+
+    def contains(self, deal):
+        if not isinstance(deal, Deal):
+            raise TypeError("bridgemoose.Deal expected")
+
+        bits = set()
+
+        for i, card in enumerate(SimpleHandMetric.cards):
+            for j, hand in enumerate(deal):
+                if card in hand.cards:
+                    break
+            else:
+                assert False, (f"missing {card} somehow")
+
+            if j & 2:
+                bits.add(i*2+1)
+            if j & 1:
+                bits.add(i*2)
+
+        return self.d.eval_pset(bits)
+
 
     def count(self):
         return self.d.pcount()
@@ -591,4 +617,4 @@ if __name__ == "__main__":
             print("------")
             print(ds.sample().square_string())
 
-__all__ = ["hand_makers"]
+__all__ = ["hand_makers", "DealSet"]

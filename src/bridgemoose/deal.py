@@ -292,6 +292,9 @@ class Deal:
 
         return [self.W, self.N, self.E, self.S][index]
 
+    def __iter__(self):
+        yield from [self.W, self.N, self.E, self.S]
+
     def __eq__(self, other):
         if not isinstance(other, Deal):
             return False

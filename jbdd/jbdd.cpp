@@ -3,6 +3,7 @@
 #include <inttypes.h>
 #include <vector>
 #include <map>
+#include <set>
 #include "j128.h"
 #include "jbdd.h"
 
@@ -318,6 +319,66 @@ BDD_pcount(PyObject* self, PyObject* args)
 }
 
 static PyObject*
+BDD_eval_pset(PyObject* self, PyObject* args)
+{
+    BDDObject* bo = (BDDObject*)self;
+    PyObject* arg;
+    if (!PyArg_ParseTuple(args, "O", &arg))
+	return NULL;
+
+    PyObject* iter = PyObject_GetIter(arg);
+    if (iter == NULL)
+	return NULL;
+
+    std::set<bddvar_t> ones;
+    PyObject* item = NULL;
+    while ((item = PyIter_Next(iter))) {
+	long val = PyLong_AsLong(item);
+	if (val == -1) {
+	    Py_DECREF(item);
+	    Py_DECREF(iter);
+	    return NULL;
+	}
+	ones.insert(val);
+    }
+    Py_DECREF(iter);
+    if (PyErr_Occurred())
+	return NULL;
+
+    bddref_t cur = bo->index;
+    BDD_INFO_VEC& iv = info_vector();
+    int sanity = 0;
+    while (true) {
+	sanity++;
+	if (sanity > 10000) {
+	    PyErr_SetString(PyExc_RuntimeError, "We went insane");
+	    return NULL;
+	}
+	if (cur == bdd_true)
+	    return Py_True;
+	else if (cur == bdd_false)
+	    return Py_False;
+
+	if (cur > 0) {
+	    const BDD_INFO& bi = iv[cur-2];
+	    if (ones.find(bi.trip.vnum) != ones.end()) {
+		cur = bi.trip.avec;
+	    } else {
+		cur = bi.trip.sans;
+	    }
+	} else {
+	    const BDD_INFO& bi = iv[-cur-2];
+	    if (ones.find(bi.trip.vnum) != ones.end()) {
+		cur = -bi.trip.avec;
+	    } else {
+		cur = -bi.trip.sans;
+	    }
+	}
+    }
+}
+
+
+static PyObject*
 BDD_get_pindex(PyObject* self, PyObject* args)
 {
     BDDObject* bo = (BDDObject*)self;
@@ -405,6 +466,7 @@ static PyNumberMethods BDDNumberMethods = {
 static PyMethodDef BDDRegularMethods[] = {
     { "pcount", BDD_pcount, METH_NOARGS, "Return the number of satisfying variable sets" },
     { "get_pindex", BDD_get_pindex, METH_VARARGS, "Return a specific satisfying variable set" },
+    { "eval_pset", BDD_eval_pset, METH_VARARGS, "Evaluate the BDD on a specific set of 1 bits" },
     { "split", BDD_split, METH_NOARGS, "Return either a bool for a constant, or a tuple of (vnum, pos_cofactor, neg_cofactor)" },
     { "false", BDD_false, METH_NOARGS | METH_STATIC, "Return the constant False BDD" },
     { "true", BDD_true, METH_NOARGS | METH_STATIC, "Return the constant True BDD" },

@@ -180,6 +180,12 @@ class DDComparison:
         self.scores2 = scores2
         self.score_type = score_type
 
+    def contract_counter(self, index):
+        return Counter([self.contracts1, self.contracts2][index])
+
+    def score_counter(self, index):
+        return Counter([self.scores1, self.scores2][index])
+
     def advantage_1(self, score_type=None):
         if score_type is None:
             score_type = self.score_type
@@ -194,16 +200,12 @@ class DDComparison:
         }
         score_func = scorers[score_type.upper()]
 
-        count1 = Counter()
-        count2 = Counter()
         stat = Statistic()
 
-        for c1, s1, c2, s2 in zip(self.contracts1, self.scores1, self.contracts2, self.scores2):
+        for s1, s2 in zip(self.scores1, self.scores2):
             stat.add_data_point(score_func(s1 - s2))
-            count1[(c1,s1)] += 1
-            count2[(c2,s2)] += 1
 
-        return stat, count1, count2
+        return stat
 
 
 class DDAnalyzer:
@@ -232,18 +234,23 @@ class DDAnalyzer:
                 self.tricks.append({})
                 hits += 1
 
+    def test_strategy(self, strategy, show="NS"):
+        dc_list = self._get_contracts(strategy)
+        for deal, dc in zip(self.deals, dc_list):
+            print(f"{' '.join(f'{h}={deal[h]:17}' for h in show)} {dc}")
 
-    def _get_contracts(self, strategy):
+
+    def _get_contracts(self, strategy, ignore_func=None):
         if callable(strategy):
-            return [auction.DeclaredContract(strategy(deal)) for deal in self.deals]
+            return [None if ignore_func and ignore_func(deal) else auction.DeclaredContract(strategy(deal)) for deal in self.deals]
         else:
-            return [auction.DeclaredContract(strategy)] * len(self.deals)
+            return [None if ignore_func and ignore_func(deal) else auction.DeclaredContract(strategy) for deal in self.deals]
 
     def compare_strategies(self, strategy1, strategy2, score_type=None,
-        vulnerability=None):
+        vulnerability=None, ignore_func=None):
         #
-        contracts1 = self._get_contracts(strategy1)
-        contracts2 = self._get_contracts(strategy2)
+        contracts1 = self._get_contracts(strategy1, ignore_func)
+        contracts2 = self._get_contracts(strategy2, ignore_func)
 
         self._dds_work(contracts1, contracts2)
 
@@ -274,12 +281,14 @@ class DDAnalyzer:
 
         return [sign[con.declarer] * scoring.result_score(con,
             self.tricks[i][con.ds()], con.declarer in vul_set) for
-            i, con in enumerate(contracts)]
+            i, con in enumerate(contracts) if con is not None]
 
     def _dds_work(self, contracts1, contracts2):
         work = []
         work_index = []
         for i in range(len(self.deals)):
+            if contracts1[i] is None or contracts2[i] is None:
+                continue
             DS1 = contracts1[i].ds()
             DS2 = contracts2[i].ds()
             if not DS1 in self.tricks[i]:
@@ -289,6 +298,7 @@ class DDAnalyzer:
                 work.append((self.deals[i], DS2[0], DS2[1]))
                 work_index.append((i, DS2))
 
+        print(f"DEBUG: amount of work is {len(work)}")
         answers = dds.solve_many_deals(work)
 
         for answer, (deal_num, ds) in zip(answers, work_index):

@@ -1,6 +1,8 @@
 import re
 from .direction import Direction
+from functools import total_ordering
 
+@total_ordering
 class Contract:
     RE = re.compile("([1-7])([CcDdHhSsNn]|NT|nt)([xX*]{0,2})$")
 
@@ -32,6 +34,28 @@ class Contract:
     def __repr__(self):
         return "%d%s%s" % (self.level, self.strain, "xx"[:self.double_state])
 
+    def __lt__(self, other):
+        o = Contract(other)
+        if self.level < o.level:
+            return True
+        elif self.level > o.level:
+            return False
+
+        ss = "X" if self.strain == "N" else self.strain
+        os = "X" if o.strain == "N" else o.strain
+        if ss < os:
+            return True
+        elif ss > os:
+            return False
+
+        if self.double_state < o.double_state:
+            return True
+        else:
+            return False
+
+    def is_bid(self):
+        return isinstance(self.value, Bid)
+
     def __eq__(self, other):
         o = Contract(other)
         return self.level == o.level and self.strain == o.strain and self.double_state == o.double_state
@@ -39,6 +63,8 @@ class Contract:
     def __hash__(self):
         return hash((self.level, self.strain, self.double_state))
 
+
+@total_ordering
 class DeclaredContract:
     RE = re.compile("([1-7])([CcDdHhSsNn]|NT|nt)([x*]{0,2})-([NEWS])$")
 
@@ -85,6 +111,27 @@ class DeclaredContract:
     def __repr__(self):
         return "%d%s%s-%s" % (self.level, self.strain, "xx"[:self.double_state], self.declarer)
 
+    def __lt__(self, other):
+        o = Contract(other)
+        if self.level < o.level:
+            return True
+        elif self.level > o.level:
+            return False
+
+        ss = "X" if self.strain == "N" else self.strain
+        os = "X" if o.strain == "N" else o.strain
+        if ss < os:
+            return True
+        elif ss > os:
+            return False
+
+        if self.double_state < o.double_state:
+            return True
+        elif self.double_state > o.double_state:
+            return False
+
+        return self.declarer.i < o.declarer.i
+
     def __eq__(self, other):
         o = DeclaredContract(other)
         return self.level == o.level and self.strain == o.strain and self.double_state == o.double_state and self.declarer == o.declarer
@@ -124,6 +171,18 @@ class Bid:
 
     def cmp(self, other):
         return self.step() - Bid(other).step()
+
+    def min_bid_strain(self, strain):
+        if strain == "NT":
+            strain = "N"
+        if not strain in "CDHSN":
+            raise ValueError("Bad Strain, must be in 'CDHSN'")
+
+        bid = self
+        while True:
+            bid += 1
+            if bid.strain == strain:
+                return bid
 
     @staticmethod
     def all_bids():
@@ -179,6 +238,54 @@ class Bid:
 
     def __str__(self):
         return "%d%s" % (self.level, self.strain)
+
+class Call:
+    """ Representing the legal calls possible during an auction, which
+    are bids, Pass, Double, and Redouble """
+    def __init__(self, value):
+        if isinstance(value, Call):
+            self.kind = value.kind
+            self.bid = value.bid
+        elif isinstance(value, Bid):
+            self.kind = "B"
+            self.bid = value
+        elif isinstance(value, str):
+            self.bid = None
+            if value.upper() in ["P", "PASS"]:
+                self.kind = "P"
+            elif value.upper() in ["X", "D", "DBL", "DOUBLE"]:
+                self.kind = "D"
+            elif value.upper() in ["XX", "R", "RDBL", "REDBL", "REDOUBLE"]:
+                self.kind = "R"
+            else:
+                self.kind = "B"
+                self.bid = Bid(value)
+        else:
+            raise TypeError(f"Cannot initialize off '{value}'")
+
+    def __eq__(self, other):
+        if not isinstance(other, Call):
+            other = Call(other)
+
+        return self.kind == other.kind and self.bid == other.bid
+
+    def __hash__(self):
+        return hash((self.kind, self.bid))
+
+    def is_bid(self):
+        return self.kind == "B"
+
+    def is_pass(self):
+        return self.kind == "P"
+
+    def __str__(self):
+        return str(self.bid) if self.kind == "B" else self.kind
+    __repr__ = __str__
+
+
+Call.PASS = Call("P")
+Call.DOUBLE = Call("D")
+Call.REDOUBLE = Call("R")
 
 class Auction:
     def __init__(self, dealer, bids=None):
@@ -242,26 +349,13 @@ list of calls.
             self.num_doubles, dec)
 
     def add_call(self, call):
-        if isinstance(call, Bid):
-            call = str(call)
-        if not isinstance(call, str):
-            raise TypeError("Calls are expected to be strings")
-
-        call = call.upper()
-
-        if call in ["P", "PASS"]:
-            call = "P"
-        elif call in ["D", "DBL", "X", "DOUBLE"]:
-            call = "X"
-        elif call in ["R", "REDOUBLE", "XX"]:
-            call = "XX"
-        elif call[1:] == "NT":
-            call = call[0] + "N"
+        call = Call(call)
 
         lc = self.legal_calls()
         if lc is None:
             raise ValueError("Auction is over")
         elif not call in lc:
+            print(f"JORDAN: lc={lc}")
             raise ValueError(f"Call '{call}' is not legal here")
 
         self.all_calls.append(call)
@@ -270,22 +364,23 @@ list of calls.
         cur_dir = self.next_dir
         self.next_dir += 1
 
-        if call == "P":
+        if call.is_pass():
             self.num_passes += 1
             return self
 
-        if call == "X":
+        if call == Call.DOUBLE:
             self.num_passes = 0
             self.num_doubles = 1
             return self
 
-        if call == "XX":
+        if call == Call.REDOUBLE:
             self.num_passes = 0
             self.num_doubles = 2
             return self
 
         # The call was a bid
-        bid = Bid(call)
+        assert call.is_bid()
+        bid = call.bid
         key = (cur_dir.side_index(), bid.strain)
         if key not in self.first_strain_calls:
             self.first_strain_calls[key] = (cur_dir, bid)
@@ -296,6 +391,7 @@ list of calls.
         self.num_passes = 0
 
         return self
+    add = add_call
 
     def rem_call(self):
         if len(self.all_calls) == 0:
@@ -319,17 +415,27 @@ list of calls.
         if self.done():
             return None
 
-        out = ["P"]
+        out = [Call.PASS]
         if self.last_bid is None:
-            out.extend(str(x) for x in Bid.all_bids())
+            out.extend(map(Call,Bid.all_bids()))
         else:
-            out.extend(str(x) for x in self.last_bid.all_above())
+            out.extend(map(Call,self.last_bid.all_above()))
             if self.num_doubles == 0 and self.next_dir.opp_side(self.last_bid_dir):
-                out.append("X")
+                out.append(Call.DOUBLE)
             elif self.num_doubles == 1 and self.next_dir.same_side(self.last_bid_dir):
-                out.append("XX")
+                out.append(Call.REDOUBLE)
 
         return out
+
+    def min_bid(self):
+        """ Return the lowest legal Bid a player can make, or None in the
+            case where the auction is already at 7NT """
+        if self.last_bid is None:
+            return bm.Bid("1C")
+        elif self.last_bid.level == 7 and self.last_bid.strain == "N":
+            return None
+        else:
+            return self.last_bid + 1
 
     def __str__(self):
         return str(self.dealer) + ":" + ",".join(self.all_calls)
@@ -462,6 +568,7 @@ output is a DeclaredContract object such as "3NTx-W"
 __all__ = [
     "Auction",
     "Bid",
+    "Call",
     "Contract",
     "DeclaredContract",
     "auction_next_to_call",
