@@ -157,7 +157,7 @@ class Bid:
             self.level = int(args[0])
             self.strain = args[1].upper()
         else:
-            raise TypeError("Bad Bid")
+            raise TypeError(f"Bad Bid: {args}")
 
         if self.level < 1 or self.level > 7:
             raise TypeError("Bad level")
@@ -170,6 +170,13 @@ class Bid:
         return self.level * 5 + Bid.STRAINS.index(self.strain) - 5
 
     def cmp(self, other):
+        if other is None:
+            return 1
+        if isinstance(other, Call):
+            if other.is_bid():
+                other = other.bid
+            else:
+                return 1
         return self.step() - Bid(other).step()
 
     def min_bid_strain(self, strain):
@@ -193,6 +200,11 @@ class Bid:
             if cur == top:
                 break
             cur = cur + 1
+
+    def all_eq_above(self):
+        """ A generator iterating over this bid and all bids above this one """
+        yield self
+        yield from self.all_above()
 
     def all_above(self):
         """ A generator iterating over all bids above this one """
@@ -431,14 +443,14 @@ list of calls.
         """ Return the lowest legal Bid a player can make, or None in the
             case where the auction is already at 7NT """
         if self.last_bid is None:
-            return bm.Bid("1C")
+            return Bid("1C")
         elif self.last_bid.level == 7 and self.last_bid.strain == "N":
             return None
         else:
             return self.last_bid + 1
 
     def __str__(self):
-        return str(self.dealer) + ":" + ",".join(self.all_calls)
+        return str(self.dealer) + ":" + ",".join(map(str,self.all_calls))
 
 
 
