@@ -8,6 +8,14 @@ class Card(collections.namedtuple("Card", "suit rank")):
     RANK_ORDER = {x:i for i,x in enumerate(RANKS)}
     SUIT_ORDER = {x:i for i,x in enumerate(SUITS)}
 
+    @property
+    def suit_index(self):
+        return Card.SUIT_ORDER[self.suit]
+
+    @property
+    def rank_index(self):
+        return Card.RANK_ORDER[self.rank]
+
     @staticmethod
     def rank_order(r):
         return Card.RANK_ORDER[r]
