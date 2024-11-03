@@ -228,7 +228,7 @@ class ViewKeeper:
 
         self.deal = deal
         self.views = [PlayView(declarer, contract, vulnerable) for _ in range(3)]
-        self.dec_pv, self.lho_pv, self.rho_pv = self.views
+        self.dec_view, self.lho_view, self.rho_view = self.views
 
         self.view_by_dir = [None]*4
         self.view_by_dir[declarer.i] = self.dec_view
