@@ -218,7 +218,58 @@ from a history (an iterable of played cards)
         if len(self.current_trick) == 4 and finish_trick:
             self.finish_trick()
 
-__all__ = ["PartialHand", "PlayView", "ShowOut"]
+class ViewKeeper:
+    """ A class that maintains views for all four (three) players """
+    def __init__(self, declarer, contract, vulnerable, deal):
+        declarer = Direction(declarer)
+        lho = declarer + 1
+        dummy = declarer + 2
+        rho = declarer + 3
+
+        self.deal = deal
+        self.views = [PlayView(declarer, contract, vulnerable) for _ in range(3)]
+        self.dec_pv, self.lho_pv, self.rho_pv = self.views
+
+        self.view_by_dir = [None]*4
+        self.view_by_dir[declarer.i] = self.dec_view
+        self.view_by_dir[lho.i] = self.lho_view
+        self.view_by_dir[dummy.i] = self.dec_view
+        self.view_by_dir[rho.i] = self.rho_view
+
+        self.dec_view.set_hand(declarer, deal[declarer])
+        self.lho_view.set_hand(lho, deal[lho])
+        self.rho_view.set_hand(rho, deal[rho])
+
+    def play_card(self, card, finish_trick=True):
+        for view in self.views:
+            view.play_card(card, finish_trick)
+            if len(view.history) == 1:
+                view.set_dummy(deal[view.dummy])
+
+    def finish_trick(self):
+        for view in self.views:
+            view.finish_trick()
+
+    def cur_direction(self):
+        return self.dec_view.next_play
+
+    def cur_view(self):
+        return self.views[self.dec_view.next_play.i]
+
+    def cur_legal_plays(self):
+        return self.cur_view().legal_plays()
+
+    def get_history(self):
+        return self.dec_view.history
+
+    def get_declarer_tricks(self):
+        return self.dec_view.declarer_tricks
+
+    def get_defense_tricks(self):
+        return self.dec_view.defense_tricks
+
+
+__all__ = ["PartialHand", "PlayView", "ShowOut", "ViewKeeper"]
 
 if __name__ == "__main__":
     p1 = PartialHand("952/Q32/QT9/KJ97")
