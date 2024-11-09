@@ -72,6 +72,20 @@ class Card(collections.namedtuple("Card", "suit rank")):
     def all():
         return sum([[Card(s,r) for s in Card.SUITS] for r in Card.RANKS], [])
 
+    def beats(self, other, strain):
+        """
+Tell us whether this card is better than that <other> card given that
+the contract is being played in <strain>
+        """ 
+        if other is None:
+            return True
+        other = Card(other)
+
+        if self.suit == other.suit:
+            return self.rank_index > other.rank_index
+        else:
+            return self.suit == strain
+
 def cmp_rank(r1, r2):
     """
 r1 and r2 are single character strings representing a rank.  Return
