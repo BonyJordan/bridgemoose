@@ -108,11 +108,13 @@ def make_lexer():
 
     def t_WORD(t):
         r'[A-Za-z_][A-Za-z_0-9]*'
-        if t.value in singular_words:
+        lower = t.value.lower()
+
+        if lower in singular_words:
             t.type = t.value.upper()
-        elif t.value in plural_words:
+        elif lower in plural_words:
             t.type = t.value.upper()
-        elif t.value[-1] == "s" and t.value[:-1] in plural_words:
+        elif lower[-1] == "s" and lower[:-1] in plural_words:
             t.type = t.value[:-1].upper()
 
         if t.type == "SHAPE":
