@@ -2,7 +2,7 @@ from collections import Counter
 import itertools
 import functools
 
-@functools.cache
+@functools.lru_cache
 def get_all_shapes():
     for t in itertools.combinations(range(16), 3):
         s = [-1] + list(t) + [16]
@@ -14,12 +14,12 @@ def exact_match(spec, shape):
             return False
     return True
 
-@functools.cache
+@functools.lru_cache
 def get_exact_shapes(spec):
     out = [shape for shape in get_all_shapes() if exact_match(spec, shape)]
     return set(out)
 
-@functools.cache
+@functools.lru_cache
 def get_any_shapes(spec):
     req = Counter()
     for x in spec:
@@ -29,7 +29,7 @@ def get_any_shapes(spec):
     out = [shape for shape in get_all_shapes() if Counter(shape) >= req]
     return set(out)
 
-@functools.cache
+@functools.lru_cache
 def get_specified_shapes(tree):
     if tree[0] == 'exact':
         return get_exact_shapes(tree[1])
