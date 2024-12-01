@@ -67,7 +67,7 @@ def make_lexer():
         exec(f"t_ShapeMode_{name} = {rex}")
 
     def t_ShapeMode_WORD(t):
-        r'(north|south|east|west|any)'
+        r'(NORTH|SOUTH|EAST|WEST|north|south|east|west|any)'
         t.type = t.value.upper()
         return t
 
@@ -128,13 +128,13 @@ def make_lexer():
         r'\n+'
         t.lexer.lineno += len(t.value)
 
-    t_ANY_ignore = ' \t'
+    t_ANY_ignore = ' \t\r'
     t_ANY_ignore_COMMENT1 = r'\#.*'
     t_ANY_ignore_COMMENT2 = r'//.*'
     t_ANY_ignore_COMMENT3 = r'/\*.*\*/'
 
     def t_ANY_error(t):
-        raise SyntaxError(f"Illegal character {t.value[0]} line {t.lexer.lineno}")
+        raise SyntaxError(f"Illegal character <{ord(t.value[0])}> line {t.lexer.lineno}")
 
 
     tokens = list(token_set)

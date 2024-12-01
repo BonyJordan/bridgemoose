@@ -19,6 +19,9 @@ def get_exact_shapes(spec):
     out = [shape for shape in get_all_shapes() if exact_match(spec, shape)]
     return set(out)
 
+def counter_ge(a, b):
+    return all(a[key] >= val for key,val in b.items())
+
 @functools.lru_cache
 def get_any_shapes(spec):
     req = Counter()
@@ -26,7 +29,7 @@ def get_any_shapes(spec):
         if x != "x":
             req[int(x)] += 1
 
-    out = [shape for shape in get_all_shapes() if Counter(shape) >= req]
+    out = [shape for shape in get_all_shapes() if counter_ge(Counter(shape), req)]
     return set(out)
 
 @functools.lru_cache
@@ -40,8 +43,8 @@ def get_specified_shapes(tree):
         a2 = get_specified_shapes(tree[2])
         return a1 | a2
     elif tree[0] == '-':
-        a1 = get_okay_shapes(tree[1])
-        a2 = get_okay_shapes(tree[2])
+        a1 = get_specified_shapes(tree[1])
+        a2 = get_specified_shapes(tree[2])
         return a1 - a2
     else:
         assert False

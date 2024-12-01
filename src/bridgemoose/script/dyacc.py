@@ -36,6 +36,7 @@ def make_parser(tokens):
     def p_unary_op(p):
         """
         bexpr : NOT bexpr
+              | "!" bexpr
         """
         p[0] = ("not", p[2])
 
@@ -164,7 +165,7 @@ if __name__ == "__main__":
 
     lexer, tokens = dlex.make_lexer()
     parser = make_parser(tokens)
-    result = parser.parse(f.read())
+    result = parser.parse(f.read(), debug=1)
 
     fancy_print(result)
     # print(result)

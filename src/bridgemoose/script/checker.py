@@ -39,7 +39,7 @@ BEXPR_MAP = {
 }
 
 def eval_bexpr(tree, deal, context):
-    lm = BEXPR_MAP[tree[0]]
+    lm = BEXPR_MAP[tree[0].lower()]
     return lm(tree, deal, context)
 
 NEXPR_MAP = {
@@ -81,7 +81,7 @@ NEXPR_MAP = {
 def eval_nexpr(tree, deal, context):
     if isinstance(tree, int):
         return tree
-    lm = NEXPR_MAP[tree[0]]
+    lm = NEXPR_MAP[tree[0].lower()]
     return lm(tree, deal, context)
 
 def eval_shape(compass, spec, deal):
