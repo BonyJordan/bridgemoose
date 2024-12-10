@@ -2,7 +2,6 @@ from collections import Counter
 import itertools
 import functools
 
-@functools.lru_cache
 def get_all_shapes():
     for t in itertools.combinations(range(16), 3):
         s = [-1] + list(t) + [16]
