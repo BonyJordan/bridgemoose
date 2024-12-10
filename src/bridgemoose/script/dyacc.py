@@ -141,7 +141,7 @@ def make_parser(tokens):
         ('left', '?', ':'),
         ('left', 'OR'),
         ('left', 'AND'),
-        ('right', 'NOT'),
+        ('right', 'NOT', '!'),
         ('left', '+', '-', 'PLUS', 'MINUS'),
         ('left', '*', '/', '%'),
     )
