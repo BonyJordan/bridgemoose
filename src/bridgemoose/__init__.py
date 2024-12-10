@@ -22,6 +22,9 @@ from .random import *
 from . import scoring
 from .scoring import *
 
+from . import script
+from .script import *
+
 from . import dds
 from . import jbdd
 from . import logit
@@ -36,3 +39,4 @@ __all__.extend(direction.__all__)
 __all__.extend(play.__all__)
 __all__.extend(random.__all__)
 __all__.extend(scoring.__all__)
+__all__.extend(script.__all__)
