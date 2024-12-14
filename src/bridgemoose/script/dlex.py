@@ -85,7 +85,7 @@ def make_lexer():
         exec(f"t_CardMode_{name} = {rex}")
 
     def t_CardMode_WORD(t):
-        r'(north|south|east|west)'
+        r'(NORTH|SOUTH|EAST|WEST|north|south|east|west)'
         t.type = t.value.upper()
         return t
 
@@ -98,7 +98,7 @@ def make_lexer():
         r'([23456789TJQKA][CDHS])|([CDHS][23456789TJQKA])'
         if t.value[1] in "CDHS":
             t.value = t.value[1] + t.value[0]
-        t.type = CARD
+        t.type = "CARD"
         return t
 
     def t_NUMBER(t):

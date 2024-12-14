@@ -89,7 +89,7 @@ def eval_shape(compass, spec, deal):
     return deal.hand(compass[0].upper()).pattern in allowed
 
 def eval_hascard(compass, card, deal):
-    raise NotImplemented
+    return card in deal.hand(compass[0].upper())
 
 def eval_counter(tree, deal, **kwargs):
     if len(tree) == 3:
