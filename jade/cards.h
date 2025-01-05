@@ -3,6 +3,7 @@
 
 #include "../dds/dll.h"
 #include "../dds/dds_api.h"
+#include <cstdint>
 #include <string>
 
 #define J_WEST 0
