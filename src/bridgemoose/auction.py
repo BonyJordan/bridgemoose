@@ -405,7 +405,7 @@ list of calls.
         return self
     add = add_call
 
-    def rem_call(self):
+    def undo_call(self):
         if len(self.all_calls) == 0:
             raise ValueError("No calls to remove")
 
