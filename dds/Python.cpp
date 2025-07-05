@@ -144,6 +144,25 @@ set_win_rank_string(char wr_string[5], const int winRanks[4]) {
     wr_string[4] = '\0';
 }
 
+static unsigned int
+bitcount_16(unsigned int x)
+{
+    unsigned a = (x & 0x5555) + ((x & 0xaaaa) >> 1);
+    unsigned b = (a & 0x3333) + ((a & 0xcccc) >> 2);
+    unsigned c = (b & 0x0f0f) + ((b & 0xf0f0) >> 4);
+    unsigned d = c + (c >> 8);
+    return d & 0xff;
+}
+
+static unsigned int
+deal_tricks(const struct deal* dl)
+{
+    unsigned int n = 0;
+    for (int i=0 ; i<4 ; i++)
+	n += bitcount_16(dl->remainCards[0][i]);
+    return n;
+}
+
 
 struct CurrentTrick {
     int suit[3];
@@ -290,7 +309,7 @@ dds_solve_many_deals(PyObject* self, PyObject* args)
 	    }
 
 	    for (int i=0 ; i<solves.noOfBoards ; i++) {
-		PyObject* val = PyLong_FromLong(13 - solves.solvedBoard[i].score[0]);
+		PyObject* val = PyLong_FromLong(deal_tricks(&boards.deals[i]) - solves.solvedBoard[i].score[0]);
 		if (val == NULL) {
 		    if (py_deal != NULL)
 			Py_DECREF(py_deal);
@@ -342,7 +361,7 @@ dds_solve_deal(PyObject* self, PyObject* args)
 
     // SolveBoard gives us the number of tricks for "the side on lead",
     // but we really want it from declarer's point of view.
-    return Py_BuildValue("i", 13-futs.score[0]);
+    return Py_BuildValue("i", deal_tricks(&dl)-futs.score[0]);
 }
 
 //
