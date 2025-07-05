@@ -415,7 +415,7 @@ list of calls.
 
         if off in ["P","X","XX"]:
             return self
-        bid = Bid(off)
+        bid = off.bid
         key = (self.next_dir.side_index(), bid.strain)
         fdir, fbid = self.first_strain_calls[key]
         if bid == fbid:
