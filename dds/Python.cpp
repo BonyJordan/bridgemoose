@@ -21,16 +21,6 @@ const char* DIRS = "WNES";
 #define RETURN_ASSERT   return PyErr_Format(PyExc_AssertionError, "Horror occured at %s:%d", __FILE__, __LINE__)
 
 
-static int bitcount(int a)
-{
-    int b = (a & 0x5555) + ((a>>1) & 0x5555);
-    int c = (b & 0x3333) + ((b>>2) & 0x3333);
-    int d = (c & 0x0f0f) + ((c>>4) & 0x0f0f);
-    int e = (d & 0x00ff) + ((d>>8) & 0x00ff);
-    return e;
-}
-
-
 static int string_to_dir(const char* s)
 {
     switch (s[0]) {
@@ -517,7 +507,7 @@ dds_solve_many_plays(PyObject* self, PyObject* args)
 	    int num_cards = 0;
 	    int num_card_classes = sb.solvedBoard[i].cards;
 	    for (int cc=0 ; cc<num_card_classes ; cc++)
-		num_cards += 1 + bitcount(sb.solvedBoard[i].equals[cc]);
+		num_cards += 1 + bitcount_16(sb.solvedBoard[i].equals[cc]);
 
 	    PyObject* board_list = PyList_New(num_cards);
 	    if (board_list == NULL) {
@@ -648,7 +638,7 @@ dds_analyze_deal_play(PyObject* self, PyObject* args)
                 }
             }
 
-            int n = 1 + bitcount(futs.equals[cc]);
+            int n = 1 + bitcount_16(futs.equals[cc]);
             if (futs.score[cc] == best_score) {
                 goods[i/2] += n;
                 if (this_is_played)
@@ -762,7 +752,7 @@ dds_play_menu(PyObject* self, PyObject* args)
 
     PyObject* py_out_list = PyList_New(ft.cards);
     for (int i=0 ; i<ft.cards ; i++) {
-	PyObject* py_equals_list = PyList_New(1 + bitcount(ft.equals[i]));
+	PyObject* py_equals_list = PyList_New(1 + bitcount_16(ft.equals[i]));
 	char card[3];
 	suit_rank_str(ft.suit[i], ft.rank[i], card);
 	PyList_SET_ITEM(py_equals_list, 0, Py_BuildValue("s", card));
