@@ -21,16 +21,6 @@ const char* DIRS = "WNES";
 #define RETURN_ASSERT   return PyErr_Format(PyExc_AssertionError, "Horror occured at %s:%d", __FILE__, __LINE__)
 
 
-static int bitcount(int a)
-{
-    int b = (a & 0x5555) + ((a>>1) & 0x5555);
-    int c = (b & 0x3333) + ((b>>2) & 0x3333);
-    int d = (c & 0x0f0f) + ((c>>4) & 0x0f0f);
-    int e = (d & 0x00ff) + ((d>>8) & 0x00ff);
-    return e;
-}
-
-
 static int string_to_dir(const char* s)
 {
     switch (s[0]) {
@@ -142,6 +132,25 @@ set_win_rank_string(char wr_string[5], const int winRanks[4]) {
 	    wr_string[suit] = '?';
     }
     wr_string[4] = '\0';
+}
+
+static unsigned int
+bitcount_16(unsigned int x)
+{
+    unsigned a = (x & 0x5555) + ((x & 0xaaaa) >> 1);
+    unsigned b = (a & 0x3333) + ((a & 0xcccc) >> 2);
+    unsigned c = (b & 0x0f0f) + ((b & 0xf0f0) >> 4);
+    unsigned d = c + (c >> 8);
+    return d & 0xff;
+}
+
+static unsigned int
+deal_tricks(const struct deal* dl)
+{
+    unsigned int n = 0;
+    for (int i=0 ; i<4 ; i++)
+	n += bitcount_16(dl->remainCards[0][i]);
+    return n;
 }
 
 
@@ -290,7 +299,7 @@ dds_solve_many_deals(PyObject* self, PyObject* args)
 	    }
 
 	    for (int i=0 ; i<solves.noOfBoards ; i++) {
-		PyObject* val = PyLong_FromLong(13 - solves.solvedBoard[i].score[0]);
+		PyObject* val = PyLong_FromLong(deal_tricks(&boards.deals[i]) - solves.solvedBoard[i].score[0]);
 		if (val == NULL) {
 		    if (py_deal != NULL)
 			Py_DECREF(py_deal);
@@ -342,7 +351,7 @@ dds_solve_deal(PyObject* self, PyObject* args)
 
     // SolveBoard gives us the number of tricks for "the side on lead",
     // but we really want it from declarer's point of view.
-    return Py_BuildValue("i", 13-futs.score[0]);
+    return Py_BuildValue("i", deal_tricks(&dl)-futs.score[0]);
 }
 
 //
@@ -498,7 +507,7 @@ dds_solve_many_plays(PyObject* self, PyObject* args)
 	    int num_cards = 0;
 	    int num_card_classes = sb.solvedBoard[i].cards;
 	    for (int cc=0 ; cc<num_card_classes ; cc++)
-		num_cards += 1 + bitcount(sb.solvedBoard[i].equals[cc]);
+		num_cards += 1 + bitcount_16(sb.solvedBoard[i].equals[cc]);
 
 	    PyObject* board_list = PyList_New(num_cards);
 	    if (board_list == NULL) {
@@ -629,7 +638,7 @@ dds_analyze_deal_play(PyObject* self, PyObject* args)
                 }
             }
 
-            int n = 1 + bitcount(futs.equals[cc]);
+            int n = 1 + bitcount_16(futs.equals[cc]);
             if (futs.score[cc] == best_score) {
                 goods[i/2] += n;
                 if (this_is_played)
@@ -743,7 +752,7 @@ dds_play_menu(PyObject* self, PyObject* args)
 
     PyObject* py_out_list = PyList_New(ft.cards);
     for (int i=0 ; i<ft.cards ; i++) {
-	PyObject* py_equals_list = PyList_New(1 + bitcount(ft.equals[i]));
+	PyObject* py_equals_list = PyList_New(1 + bitcount_16(ft.equals[i]));
 	char card[3];
 	suit_rank_str(ft.suit[i], ft.rank[i], card);
 	PyList_SET_ITEM(py_equals_list, 0, Py_BuildValue("s", card));

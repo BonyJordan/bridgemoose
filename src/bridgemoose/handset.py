@@ -454,6 +454,8 @@ class hand_makers:
     NUM_HE = lazy_const(lambda: SimpleHandMetric({Card("H",r): 1 for r in "AKQJT98765432"}))
     NUM_SP = lazy_const(lambda: SimpleHandMetric({Card("S",r): 1 for r in "AKQJT98765432"}))
     HCP = lazy_const(lambda: SimpleHandMetric({Card(s,r): v for s in "SHDC" for r, v in [('A',4), ('K',3), ('Q',2), ('J',1)]}))
+    RP = lazy_const(lambda: SimpleHandMetric({Card(s,r): v for s in "SHDC" for r, v in [('A',3), ('K',2), ('Q',1)]}))
+    """ Royal Points; 3 for an ace, 2 for a king, 1 for a queen """
     CLUBS = NUM_CL
     DIAMONDS = NUM_DI
     HEARTS = NUM_HE
@@ -468,13 +470,17 @@ class hand_makers:
     TOP4 = lazy_const(lambda: SimpleHandMetric({Card(s,r): 1 for s in "SHDC" for r in "AKQJ"}))
     TOP5 = lazy_const(lambda: SimpleHandMetric({Card(s,r): 1 for s in "SHDC" for r in "AKQJT"}))
     CONTROLS = lazy_const(lambda: SimpleHandMetric({Card(s,r): v for s in "SHDC" for r, v in [('A',2), ('K',1)]}))
+    """ 2 for ace, 1 for king """
+
     @staticmethod
     def CARD(card):
         index = SimpleHandMetric.card_index[Card(card)]
         return HandSet(BDD(index))
+    """ example CARD("SK") returns whether hand holds the spade king """
 
     @staticmethod
     def IN_SUIT(suit):
+        """ IN_SUIT("S") is equvialent to SPADES """
         return {
             "S":hand_makers.NUM_SP,
             "H":hand_makers.NUM_HE,
@@ -492,13 +498,26 @@ class hand_makers:
             return HandSet(BDD.true())
 
     QUICKx2 = lazy_const(lambda: QuickTricksMetric())
+    """ 4 for AK, 3 for AQ, 2 for A or KQ, 1 for Kx """
 
     @staticmethod
     def SHAPE(spec):
+        """ takes a string describing shape
+"4432" means 4 spades, 4 hearts, 3 diamonds, 2 clubs
+"any 4432" means any two suits with 4, any one suit with 3, last suit with 2.
+"44xx" means 4 spades, 4 hearts, any number of diamonds and clubs
+"4432 + 4333" means either of those shapes
+"44xx - 4450" means any shape with 4 spades and 4 hearts and any number of diamonds other than 5.
+        """
         return ShapeMaker.get_handset(spec)
 
     @staticmethod
     def AT_LEAST(suit, spec):
+        """ AT_LEAST("S", ["Ax","Qxx"]) for example means:
+a spade suit with at least 2 cards, one of which is the ace
+OR
+a spade suit with at least 3 cards, one of which is the queen, king, or ace.
+        """
         def one(suit, spec):
             if not isinstance(spec, str):
                 raise TypeError("Expecting a string here")
@@ -523,7 +542,7 @@ class hand_makers:
         else:
             return functools.reduce(HandSet.__or__, [one(suit, x) for x in spec])
     LONGEST = lazy_const(lambda: OrderedLengthMetric(3))
-    LONGEST_2ND = lazy_const(lambda: OrderedLengthMetric(2))
+    SECOND_LONGEST = lazy_const(lambda: OrderedLengthMetric(2))
     SHORTEST = lazy_const(lambda: OrderedLengthMetric(0))
     ANY = lazy_const(lambda: HandSet(BDD.true()))
 
