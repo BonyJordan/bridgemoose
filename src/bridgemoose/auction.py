@@ -153,11 +153,17 @@ class Bid:
         elif len(args) == 1 and type(args[0]) == Bid:
             self.level = args[0].level
             self.strain = args[0].strain
+        elif len(args) == 1 and type(args[0]) == Call:
+            if args[0].is_bid():
+                self.level = args[0].bid.level
+                self.strain = args[0].bid.strain
+            else:
+                return TypeError(f"Attemption to create a Bid from a non-bid Call: {args[0]}")
         elif len(args) == 2:
             self.level = int(args[0])
             self.strain = args[1].upper()
         else:
-            raise TypeError(f"Bad Bid: {args}")
+            raise TypeError(f"Bad Bid Type: {args}")
 
         if self.level < 1 or self.level > 7:
             raise TypeError("Bad level")
@@ -411,11 +417,12 @@ list of calls.
 
         self.next_dir -= 1
         off = self.all_calls.pop()
+        assert isinstance(off, Call)
         self.last_bid, self.last_bid_dir, self.num_doubles, self.num_passes = self.history.pop()
 
-        if off in ["P","X","XX"]:
+        if not off.is_bid():
             return self
-        bid = Bid(off)
+        bid = off.bid
         key = (self.next_dir.side_index(), bid.strain)
         fdir, fbid = self.first_strain_calls[key]
         if bid == fbid:
